@@ -1,0 +1,1 @@
+## Simple clipboard manager written in Rust
