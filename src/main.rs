@@ -26,11 +26,11 @@ impl ClippyApp {
             loop {
                 if let Ok(content) = clipboard.get_text() {
                     let mut hist = history_clone.lock().unwrap();
-                    if hist.first() != Some(&content) {
+                    if !hist.contains(&content) {
                         hist.insert(0, content.clone()); // Insert new content at the top
                         if hist.len() > 20 {
                             hist.pop();
-                        } // Keep only last 10 entries
+                        } // Keep only last 20 entries
                     }
                 }
                 thread::sleep(Duration::from_millis(1000));
@@ -47,10 +47,13 @@ impl eframe::App for ClippyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             let history = self.history.lock().unwrap();
             for value in history.iter() {
-                if ui.button(value).clicked() {
-                    let mut clipboard = Clipboard::new().unwrap();
-                    clipboard.set_text(value.clone()).unwrap();
-                }
+                ui.vertical_centered_justified(|ui| {
+                    if ui.button(value).clicked() {
+                        let mut clipboard = Clipboard::new().unwrap();
+                        clipboard.set_text(value.clone()).unwrap();
+                    }
+                });
+                ui.separator();
             }
         });
         // Ensure UI updates regularly
