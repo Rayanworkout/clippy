@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 arboard = "3.4.1"
+eframe = "0.31.1"
