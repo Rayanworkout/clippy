@@ -4,6 +4,8 @@ mod ui;
 use eframe::egui;
 use ui::ClippyApp;
 
+// TODO implement search within history
+
 fn main() -> eframe::Result<()> {
     // Create an instance that will be shared between the main thread and the daemon thread
     let clippy_shared_instance = clipboard::Clippy::new();
