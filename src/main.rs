@@ -1,10 +1,14 @@
 mod app;
+mod clipboard;
 
 use app::ClippyApp;
 use eframe::egui;
 
 // TODO Persist data + run clipboard daemon as standalone
 fn main() -> eframe::Result<()> {
+
+    clipboard::Clippy::new().run();
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_always_on_top()
