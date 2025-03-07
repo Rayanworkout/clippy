@@ -33,6 +33,8 @@ impl Clippy {
 
     // Method to run the listening thread
     pub fn run(&self) {
+        // Here we use clone() because the "move" directive when launching
+        // the thread takes ownership of the "self", preventing us for calling &self.history
         let history = self.history.clone();
         thread::spawn(move || {
             let mut clipboard = Clipboard::new().expect("Failed to access clipboard");

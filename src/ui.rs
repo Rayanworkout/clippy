@@ -32,12 +32,6 @@ impl eframe::App for ClippyApp {
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
                         .clicked()
                     {
-                        // We empty the clipboard otherwise the entry contained inside will be
-                        // added to the list when clicking on "clear"
-                        if let Ok(mut clipboard) = Clipboard::new() {
-                            // Set the clipboard to empty string
-                            let _ = clipboard.clear();
-                        }
                         self.clippy_instance.clear_history();
                     }
                 });
