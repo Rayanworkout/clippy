@@ -1,5 +1,5 @@
 use arboard::Clipboard;
-use eframe::egui::{self};
+use eframe::egui::{self, FontId, TextStyle};
 use std::{
     // Arc<T>: Thread-safe reference-counting pointer to share data across threads.
     // Mutex<T>: Ensures safe access to shared data between threads.
@@ -34,7 +34,7 @@ impl ClippyApp {
                         } // Keep only last 20 entries
                     }
                 }
-                thread::sleep(Duration::from_millis(1000));
+                thread::sleep(Duration::from_millis(800));
             }
         });
 
@@ -45,38 +45,64 @@ impl ClippyApp {
 impl eframe::App for ClippyApp {
     // Handles UI updates.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default()
-        .show(ctx, |ui| {
-            ui.add_space(5.0);
-            egui::ScrollArea::vertical()
-            .show(ui, |ui| {
-                let history = self.history.lock().unwrap();
-                for value in history.iter() {
-                    ui.vertical_centered_justified(|ui| {
-                        // We create a short version of the value but
-                        // we keep the original to be copied
-                        // only the first 60 characters
-                        const MAX_ENTRY_DISPLAY_LENGTH: usize = 60;
-                        let short_value = if value.len() > MAX_ENTRY_DISPLAY_LENGTH {
-                            format!("{}...", &value[..MAX_ENTRY_DISPLAY_LENGTH])
-                        } else {
-                            value.clone()
-                        };
+        let mut style = (*ctx.style()).clone();
+        style.text_styles.insert(
+            TextStyle::Button,
+            FontId::new(16.0, egui::FontFamily::Proportional), // Increase button font size to 16
+        );
+        ctx.set_style(style);
 
-                        if ui
-                            .button(short_value)
-                             // We use the "Copy" cursor on hover
-                            .on_hover_cursor(egui::CursorIcon::Copy)
-                            .clicked()
-                        {
-                            let mut clipboard = Clipboard::new().unwrap();
-                            clipboard.set_text(value.clone()).unwrap();
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.add_space(5.0);
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                // let _history = self.history.lock().unwrap();
+
+                // Clear history
+                ui.add_space(2.0);
+                ui.vertical_centered(|ui| {
+                    if ui
+                        .button("Clear")
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .clicked()
+                    {
+                        if let Ok(mut hist) = self.history.lock() {
+                            // Need to lock the mutex first
+                            hist.clear();
                         }
-                    });
-                    ui.add_space(5.0);
-                    ui.separator();
-                    ui.add_space(5.0);
+                    }
+                });
+                ui.add_space(5.0);
+
+                // Iterate through every value of the history
+                if let Ok(history) = self.history.lock() {
+                    for value in history.iter() {
+                        ui.vertical_centered_justified(|ui| {
+                            // We create a short version of the value but
+                            // we keep the original to be copied
+                            // only the first 60 characters
+                            const MAX_ENTRY_DISPLAY_LENGTH: usize = 60;
+                            let short_value = if value.len() > MAX_ENTRY_DISPLAY_LENGTH {
+                                format!("{}...", &value[..MAX_ENTRY_DISPLAY_LENGTH])
+                            } else {
+                                value.clone()
+                            };
+    
+                            if ui
+                                .button(short_value)
+                                // We use the "Copy" cursor on hover
+                                .on_hover_cursor(egui::CursorIcon::Copy)
+                                .clicked()
+                            {
+                                let mut clipboard = Clipboard::new().unwrap();
+                                clipboard.set_text(value.clone()).unwrap();
+                            }
+                        });
+                        ui.add_space(5.0);
+                        ui.separator();
+                        ui.add_space(5.0);
+                    }
                 }
+                
             });
         });
 
@@ -90,7 +116,14 @@ fn main() -> eframe::Result<()> {
     // + the default settings
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([250.0, 340.0]),
+        viewport: egui::ViewportBuilder::default()
+            .with_always_on_top()
+            .with_inner_size([250.0, 340.0])
+            .with_max_inner_size([350.0, 450.0])
+            .with_maximize_button(false)
+            .with_min_inner_size([200.0, 300.0])
+            .with_position([250.0, 340.0]),
+        centered: true,
         ..Default::default()
     };
 
