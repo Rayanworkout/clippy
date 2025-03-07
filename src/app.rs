@@ -1,8 +1,16 @@
 use arboard::Clipboard;
 use eframe::egui::{self, FontId, TextStyle};
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::fs;
+use std::io::BufReader;
 use std::{fs::OpenOptions, io::Write};
+use std::{
+    // Arc<T>: Thread-safe reference-counting pointer to share data across threads.
+    // Mutex<T>: Ensures safe access to shared data between threads.
+    sync::{Arc, Mutex},
+    thread,
+    time::Duration,
+};
 
 pub const HISTORY_FILE_PATH: &str = "clipboard_history.ron";
 
@@ -18,7 +26,28 @@ pub struct ClippyApp {
 }
 
 impl ClippyApp {
-    pub fn new(history: Arc<Mutex<Vec<String>>>) -> Self {
+    pub fn new() -> Self {
+        let history = Arc::new(Mutex::new(Self::load_history())); // 🔹 Load history on startup
+        let history_clone = history.clone();
+
+        // Start clipboard monitoring thread
+        thread::spawn(move || {
+            let mut clipboard = Clipboard::new().expect("Failed to access clipboard");
+            loop {
+                if let Ok(content) = clipboard.get_text() {
+                    let mut hist = history_clone.lock().unwrap();
+                    if !hist.contains(&content) && !content.is_empty() {
+                        hist.insert(0, content.clone()); // Insert at the top
+                        if hist.len() > 20 {
+                            hist.pop();
+                        }
+                        Self::save_history(&hist);
+                    }
+                }
+                thread::sleep(Duration::from_millis(800));
+            }
+        });
+
         Self { history }
     }
 
@@ -38,6 +67,16 @@ impl ClippyApp {
                 let _ = file.write_all(serialized.as_bytes());
             }
         }
+    }
+
+    fn load_history() -> Vec<String> {
+        if let Ok(file) = fs::File::open(HISTORY_FILE_PATH) {
+            let reader = BufReader::new(file);
+            if let Ok(history_data) = ron::de::from_reader::<_, ClipboardHistory>(reader) {
+                return history_data.entries;
+            }
+        }
+        Vec::new() // Return empty list if file doesn't exist or is invalid
     }
 }
 

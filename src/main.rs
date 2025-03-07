@@ -1,17 +1,10 @@
-mod clipboard;
-mod ui;
+mod app;
 
+use app::ClippyApp;
 use eframe::egui;
-use std::sync::{Arc, Mutex};
-use ui::ClippyApp;
 
 // TODO Persist data + run clipboard daemon as standalone
 fn main() -> eframe::Result<()> {
-    let history = Arc::new(Mutex::new(Vec::new()));
-
-    // Start clipboard listener
-    clipboard::start_clipboard_listener(history.clone());
-
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_always_on_top()
@@ -27,6 +20,6 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Clippy",
         options,
-        Box::new(|_cc| Ok(Box::new(ClippyApp::new(history)))),
+        Box::new(|_cc| Ok(Box::new(ClippyApp::new()))),
     )
 }
