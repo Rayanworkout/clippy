@@ -18,15 +18,15 @@ impl eframe::App for ClippyApp {
         let mut style = (*ctx.style()).clone();
         style.text_styles.insert(
             TextStyle::Button,
-            FontId::new(16.0, egui::FontFamily::Proportional), // Increase button font size to 16
+            FontId::new(18.0, egui::FontFamily::Proportional),
         );
         ctx.set_style(style);
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add_space(5.0);
+            ui.add_space(10.0);
             egui::ScrollArea::vertical().show(ui, |ui| {
                 // Clear history
-                ui.add_space(2.0);
+                ui.add_space(10.0);
                 ui.vertical_centered(|ui| {
                     if ui
                         .button("🗑")
