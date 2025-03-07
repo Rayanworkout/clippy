@@ -1,19 +1,17 @@
-mod app;
+mod ui;
 mod clipboard;
 
 use std::sync::Arc;
 
-use app::ClippyApp;
+use ui::ClippyApp;
 use eframe::egui;
 
 fn main() -> eframe::Result<()> {
+    // Create an instance that will be shared between the main thread and the daemon thread
     let clippy_shared_instance = Arc::new(clipboard::Clippy::new());
 
-    // Clone for the daemon thread
-    let _clippy_daemon = clippy_shared_instance.clone();
-
+    // Run the daemon thread
     clippy_shared_instance.run();
-
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -27,6 +25,8 @@ fn main() -> eframe::Result<()> {
         ..Default::default()
     };
 
+    // And the main thread
+    // ClippyApp uses a clone of the shared instance to safely access it
     eframe::run_native(
         "Clippy",
         options,
