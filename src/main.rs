@@ -55,18 +55,22 @@ impl eframe::App for ClippyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add_space(5.0);
             egui::ScrollArea::vertical().show(ui, |ui| {
-                // let _history = self.history.lock().unwrap();
-
                 // Clear history
                 ui.add_space(2.0);
                 ui.vertical_centered(|ui| {
                     if ui
-                        .button("Clear")
+                        .button("🗑")
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
                         .clicked()
                     {
+                        // We empty the clipboard otherwise the entry contained inside will be
+                        // added to the list when clicking on "clear"
+                        if let Ok(mut clipboard) = Clipboard::new() {
+                            // Set the clipboard to empty string
+                            let _ = clipboard.set_text("");
+                        }
+                        // We need to lock the mutex before clearing the history iterable
                         if let Ok(mut hist) = self.history.lock() {
-                            // Need to lock the mutex first
                             hist.clear();
                         }
                     }
@@ -86,7 +90,7 @@ impl eframe::App for ClippyApp {
                             } else {
                                 value.clone()
                             };
-    
+
                             if ui
                                 .button(short_value)
                                 // We use the "Copy" cursor on hover
@@ -102,7 +106,6 @@ impl eframe::App for ClippyApp {
                         ui.add_space(5.0);
                     }
                 }
-                
             });
         });
 
