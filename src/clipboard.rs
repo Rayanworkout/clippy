@@ -88,6 +88,10 @@ impl Clippy {
         if let Ok(mut hist) = self.history.lock() {
             hist.clear(); // Clear history in memory
             let _ = fs::remove_file(HISTORY_FILE_PATH); // Delete history file
+
+            // We could also clear the current state of the keyboard
+            // let mut clipboard = Clipboard::new().expect("Failed to access clipboard");
+            // let _ = clipboard.clear();
         }
     }
 }
