@@ -8,6 +8,8 @@ use std::{
     time::Duration,
 };
 
+// TODO Persist data + run clipboard daemon as standalone
+
 struct ClippyApp {
     // Arc<Mutex<T>> is used to share Vec<String> safely across threads.
     // Vec<String> keeps clipboard entries in order.
@@ -27,7 +29,7 @@ impl ClippyApp {
             loop {
                 if let Ok(content) = clipboard.get_text() {
                     let mut hist = history_clone.lock().unwrap();
-                    if !hist.contains(&content) {
+                    if !hist.contains(&content) && !&content.is_empty() {
                         hist.insert(0, content.clone()); // Insert new content at the top
                         if hist.len() > 20 {
                             hist.pop();
