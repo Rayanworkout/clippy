@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 arboard = "3.4.1"
 eframe = "0.31.1"
+ron = "0.8"
+serde = { version = "1", features = ["derive"] }

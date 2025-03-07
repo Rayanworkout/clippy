@@ -1,4 +1,5 @@
 use arboard::Clipboard;
+
 use std::{
     // Arc<T>: Thread-safe reference-counting pointer to share data across threads.
     // Mutex<T>: Ensures safe access to shared data between threads.
@@ -21,6 +22,7 @@ pub fn start_clipboard_listener(history: Arc<Mutex<Vec<String>>>) {
                     if hist.len() > 20 {
                         hist.pop();
                     }
+                    crate::ui::ClippyApp::save_history(&hist);
                 }
             }
             thread::sleep(Duration::from_millis(800));

@@ -1,6 +1,15 @@
 use arboard::Clipboard;
 use eframe::egui::{self, FontId, TextStyle};
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
+use std::{fs::OpenOptions, io::Write};
+
+pub const HISTORY_FILE_PATH: &str = "clipboard_history.ron";
+
+#[derive(Serialize, Deserialize)]
+struct ClipboardHistory {
+    entries: Vec<String>,
+}
 
 pub struct ClippyApp {
     // Arc<Mutex<T>> is used to share Vec<String> safely across threads.
@@ -11,6 +20,24 @@ pub struct ClippyApp {
 impl ClippyApp {
     pub fn new(history: Arc<Mutex<Vec<String>>>) -> Self {
         Self { history }
+    }
+
+    // Save history to file
+    pub fn save_history(history: &Vec<String>) {
+        let history_data = ClipboardHistory {
+            entries: history.clone(),
+        };
+
+        if let Ok(serialized) = ron::ser::to_string(&history_data) {
+            if let Ok(mut file) = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(HISTORY_FILE_PATH)
+            {
+                let _ = file.write_all(serialized.as_bytes());
+            }
+        }
     }
 }
 
