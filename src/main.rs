@@ -25,7 +25,6 @@ fn main() -> eframe::Result<()> {
     };
 
     // And the main thread
-    // ClippyApp uses a clone of the shared instance to safely access it
     eframe::run_native(
         "Clippy",
         options,

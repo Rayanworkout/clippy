@@ -11,7 +11,7 @@ use std::{
     time::Duration,
 };
 
-pub const HISTORY_FILE_PATH: &str = "clipboard_history.ron";
+pub const HISTORY_FILE_PATH: &str = ".clipboard_history.ron";
 
 #[derive(Serialize, Deserialize)]
 struct ClipboardHistory {
