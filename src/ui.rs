@@ -1,18 +1,14 @@
-use std::sync::Arc;
-
 use crate::clipboard::Clippy;
 use arboard::Clipboard;
 use eframe::egui::{self, FontId, TextStyle};
 
 pub struct ClippyApp {
-    clippy_instance: Arc<Clippy>,
+    clippy_instance: Clippy,
 }
 
 impl ClippyApp {
-    pub fn new(clippy_instance: Arc<Clippy>) -> Self {
-        Self {
-            clippy_instance,
-        }
+    pub fn new(clippy_instance: Clippy) -> Self {
+        Self { clippy_instance }
     }
 }
 
