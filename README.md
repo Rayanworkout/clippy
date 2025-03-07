@@ -10,10 +10,10 @@ _You need to have `Rust` and `Cargo` installed on your machine to run this tool.
 
 ```bash
 git clone https://github.com/Rayanworkout/clippy.git
-cd clippy
-cargo build --release
 
-sudo mv target/release/clippy /usr/local/bin
+cd clippy
+
+cargo build --release && sudo cp target/release/clippy /usr/local/bin
 
 ```
 

@@ -23,7 +23,6 @@ impl eframe::App for ClippyApp {
         ctx.set_style(style);
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add_space(10.0);
             egui::ScrollArea::vertical().show(ui, |ui| {
                 // Clear history
                 ui.add_space(10.0);
@@ -42,7 +41,7 @@ impl eframe::App for ClippyApp {
                         self.clippy_instance.clear_history();
                     }
                 });
-                ui.add_space(7.0);
+                ui.add_space(10.0);
 
                 // Iterate through every value of the history
                 if let Ok(history) = self.clippy_instance.history.lock() {
