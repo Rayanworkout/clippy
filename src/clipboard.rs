@@ -32,7 +32,7 @@ impl Clippy {
     }
 
     // Method to run the listening thread
-    pub fn run(&self) {
+    pub fn listen_for_clipboard_events(&self) {
         // Here we use clone() because the "move" directive when launching
         // the thread takes ownership of the "self", preventing us for calling &self.history
         let history = self.history.clone();

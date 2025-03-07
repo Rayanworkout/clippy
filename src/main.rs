@@ -10,7 +10,7 @@ fn main() -> eframe::Result<()> {
     let clippy_shared_instance = clipboard::Clippy::new();
 
     // Run the daemon thread
-    clippy_shared_instance.run();
+    clippy_shared_instance.listen_for_clipboard_events();
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
