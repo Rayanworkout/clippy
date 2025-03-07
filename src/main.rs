@@ -67,7 +67,7 @@ impl eframe::App for ClippyApp {
                         // added to the list when clicking on "clear"
                         if let Ok(mut clipboard) = Clipboard::new() {
                             // Set the clipboard to empty string
-                            let _ = clipboard.set_text("");
+                            let _ = clipboard.clear();
                         }
                         // We need to lock the mutex before clearing the history iterable
                         if let Ok(mut hist) = self.history.lock() {
@@ -75,7 +75,7 @@ impl eframe::App for ClippyApp {
                         }
                     }
                 });
-                ui.add_space(5.0);
+                ui.add_space(7.0);
 
                 // Iterate through every value of the history
                 if let Ok(history) = self.history.lock() {
