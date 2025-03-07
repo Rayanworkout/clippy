@@ -1,12 +1,19 @@
 mod app;
 mod clipboard;
 
+use std::sync::Arc;
+
 use app::ClippyApp;
 use eframe::egui;
 
 fn main() -> eframe::Result<()> {
+    let clippy_shared_instance = Arc::new(clipboard::Clippy::new());
 
-    clipboard::Clippy::new().run();
+    // Clone for the daemon thread
+    let _clippy_daemon = clippy_shared_instance.clone();
+
+    clippy_shared_instance.run();
+
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -23,6 +30,6 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Clippy",
         options,
-        Box::new(|_cc| Ok(Box::new(ClippyApp::new()))),
+        Box::new(move |_cc| Ok(Box::new(ClippyApp::new(clippy_shared_instance.clone())))),
     )
 }

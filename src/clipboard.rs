@@ -32,13 +32,14 @@ impl Clippy {
     }
 
     // Method to run the listening thread
-    pub fn run(self) {
+    pub fn run(&self) {
+        let history = self.history.clone();
         thread::spawn(move || {
             let mut clipboard = Clipboard::new().expect("Failed to access clipboard");
 
             loop {
                 if let Ok(content) = clipboard.get_text() {
-                    if let Ok(mut hist) = self.history.lock() {
+                    if let Ok(mut hist) = history.lock() {
                         if !hist.contains(&content) && !content.trim().is_empty() {
                             hist.insert(0, content.clone());
                             if hist.len() > 100 {
@@ -87,5 +88,4 @@ impl Clippy {
             let _ = fs::remove_file(HISTORY_FILE_PATH); // Delete history file
         }
     }
-
 }

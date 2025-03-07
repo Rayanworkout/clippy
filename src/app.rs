@@ -9,11 +9,9 @@ pub struct ClippyApp {
 }
 
 impl ClippyApp {
-    pub fn new() -> Self {
-        let clippy_instance = Arc::new(Clippy::new());
-        let clippy_instance_clone = clippy_instance.clone();
+    pub fn new(clippy_instance: Arc<Clippy>) -> Self {
         Self {
-            clippy_instance: clippy_instance_clone,
+            clippy_instance,
         }
     }
 }
