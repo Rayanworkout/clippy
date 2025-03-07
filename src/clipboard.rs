@@ -87,4 +87,5 @@ impl Clippy {
             let _ = fs::remove_file(HISTORY_FILE_PATH); // Delete history file
         }
     }
+
 }

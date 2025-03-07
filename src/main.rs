@@ -4,7 +4,6 @@ mod clipboard;
 use app::ClippyApp;
 use eframe::egui;
 
-// TODO Persist data + run clipboard daemon as standalone
 fn main() -> eframe::Result<()> {
 
     clipboard::Clippy::new().run();

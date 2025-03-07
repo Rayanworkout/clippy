@@ -1,15 +1,20 @@
+use std::sync::Arc;
+
+use crate::clipboard::Clippy;
 use arboard::Clipboard;
 use eframe::egui::{self, FontId, TextStyle};
-use crate::clipboard::Clippy;
 
 pub struct ClippyApp {
-    clippy_instance: Clippy,
+    clippy_instance: Arc<Clippy>,
 }
 
 impl ClippyApp {
     pub fn new() -> Self {
-        let clippy_instance = Clippy::new();
-        Self { clippy_instance }
+        let clippy_instance = Arc::new(Clippy::new());
+        let clippy_instance_clone = clippy_instance.clone();
+        Self {
+            clippy_instance: clippy_instance_clone,
+        }
     }
 }
 
@@ -39,9 +44,6 @@ impl eframe::App for ClippyApp {
                         if let Ok(mut clipboard) = Clipboard::new() {
                             // Set the clipboard to empty string
                             let _ = clipboard.clear();
-                        }
-                        if let Ok(mut hist) = self.clippy_instance.history.lock() {
-                            hist.clear();
                         }
                         self.clippy_instance.clear_history();
                     }
