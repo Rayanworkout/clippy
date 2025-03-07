@@ -1,9 +1,8 @@
-mod ui;
 mod clipboard;
+mod ui;
 
-
-use ui::ClippyApp;
 use eframe::egui;
+use ui::ClippyApp;
 
 fn main() -> eframe::Result<()> {
     // Create an instance that will be shared between the main thread and the daemon thread

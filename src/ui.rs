@@ -33,6 +33,8 @@ impl eframe::App for ClippyApp {
                         .clicked()
                     {
                         self.clippy_instance.clear_history();
+                        // Minimize after clearing the history
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
                     }
                 });
                 ui.add_space(10.0);
@@ -58,7 +60,9 @@ impl eframe::App for ClippyApp {
                                 .clicked()
                             {
                                 let mut clipboard = Clipboard::new().unwrap();
-                                clipboard.set_text(value.clone()).unwrap();
+                                let _ = clipboard.set_text(value.clone());
+                                // Minimize after copying
+                                ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
                             }
                         });
                         ui.add_space(5.0);
