@@ -26,14 +26,15 @@ impl Clippy {
     }
 
     // Method to run the listening thread
-    pub fn listen_for_clipboard_events(self) {
+    pub fn listen_for_clipboard_events(self: std::sync::Arc<Self>) {
+        let clippy_clone = std::sync::Arc::clone(&self);
         thread::spawn(move || {
             let mut clipboard = Clipboard::new().expect("Failed to access clipboard");
 
             loop {
                 match clipboard.get_text() {
                     Ok(content) => {
-                        if let Ok(mut history) = self.history.lock() {
+                        if let Ok(mut history) = clippy_clone.history.lock() {
                             if !history.contains(&content) && !content.trim().is_empty() {
                                 history.insert(0, content.clone());
                                 if history.len() > 100 {
@@ -119,23 +120,28 @@ impl Clippy {
 }
 
 fn main() {
-    let clippy = Clippy::new();
+    // We wrap our Clippy instance in an Arc (Atomic Reference Counted pointer)
+    // to allow safe shared ownership across multiple threads. Cloning the Arc
+    // only increases the reference count, so the underlying Clippy instance is not duplicated.
+    // This lets us call methods on the same instance in both the clipboard monitoring thread
+    // and the TCP listener without moving ownership permanently.
+    let clippy = std::sync::Arc::new(Clippy::new());
     // This method spawns a new thread that runs an infinite loop
     // listening for nw content copied
-    clippy.listen_for_clipboard_events();
+    clippy.clone().listen_for_clipboard_events();
 
     // Start a TCP listener on a local port
-    // let listener = TcpListener::bind("127.0.0.1:7878").expect("Could not bind");
-    // println!("Daemon listening on port 7878 ...");
+    let listener = TcpListener::bind("127.0.0.1:7878").expect("Could not bind");
+    println!("Daemon listening on port 7878 ...");
 
-    // for stream in listener.incoming() {
-    //     match stream {
-    //         Ok(stream) => {
-    //             clippy.listen_for_history_requests(stream);
-    //         }
-    //         Err(e) => {
-    //             eprintln!("Failed to accept connection: {}", e);
-    //         }
-    //     }
-    // }
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => {
+                clippy.listen_for_history_requests(stream);
+            }
+            Err(e) => {
+                eprintln!("Failed to accept connection: {}", e);
+            }
+        }
+    }
 }
