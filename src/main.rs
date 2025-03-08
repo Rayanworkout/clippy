@@ -5,6 +5,8 @@ use eframe::egui;
 use ui::ClippyApp;
 
 // TODO implement search within history
+// Separate main thread
+// Add configuration file (settings to minimize on copy, minimize on clear ...)
 
 fn main() -> eframe::Result<()> {
     // Create an instance that will be shared between the main thread and the daemon thread
