@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{BufReader, Read, Write};
 use std::net::TcpStream;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
 const HISTORY_FILE_PATH: &str = ".clipboard_history.ron";
@@ -14,7 +14,7 @@ struct ClipboardHistory {
 }
 
 pub struct Clippy {
-    history: Mutex<Vec<String>>,
+    history: Arc<Mutex<Vec<String>>>,
 }
 
 impl Clippy {
@@ -26,34 +26,34 @@ impl Clippy {
     }
 
     // Method to run the listening thread
-    pub fn listen_for_clipboard_events(&self) {
-        // thread::spawn(move || {
-        let mut clipboard = Clipboard::new().expect("Failed to access clipboard");
+    pub fn listen_for_clipboard_events(self) {
+        thread::spawn(move || {
+            let mut clipboard = Clipboard::new().expect("Failed to access clipboard");
 
-        loop {
-            match clipboard.get_text() {
-                Ok(content) => {
-                    if let Ok(mut history) = self.history.lock() {
-                        if !history.contains(&content) && !content.trim().is_empty() {
-                            history.insert(0, content.clone());
-                            if history.len() > 100 {
-                                history.pop();
+            loop {
+                match clipboard.get_text() {
+                    Ok(content) => {
+                        if let Ok(mut history) = self.history.lock() {
+                            if !history.contains(&content) && !content.trim().is_empty() {
+                                history.insert(0, content.clone());
+                                if history.len() > 100 {
+                                    history.pop();
+                                }
+                                // We drop the lock in order not to prevent a dead lock
+                                // if both the loop and self.save_history() hold the lock()
+                                // They would be waiting for each other indefinitely.
+                                drop(history);
+                                self.save_history();
                             }
-                            // We drop the lock in order not to prevent a dead lock
-                            // if both the loop and self.save_history() hold the lock()
-                            // They would be waiting for each other indefinitely.
-                            drop(history);
-                            self.save_history();
                         }
+                        thread::sleep(Duration::from_millis(800));
                     }
-                    thread::sleep(Duration::from_millis(800));
-                }
-                Err(e) => {
-                    println!("Error getting the clipboard content: {}", e);
+                    Err(e) => {
+                        println!("Error getting the clipboard content: {}", e);
+                    }
                 }
             }
-        }
-        // })
+        });
     }
 
     // Save history to file
@@ -78,14 +78,14 @@ impl Clippy {
 
     /// Loads the current history from the file.
     /// Static method.
-    fn load_history() -> Mutex<Vec<String>> {
+    fn load_history() -> Arc<Mutex<Vec<String>>> {
         if let Ok(file) = fs::File::open(HISTORY_FILE_PATH) {
             let reader = BufReader::new(file);
             if let Ok(history_data) = ron::de::from_reader::<_, ClipboardHistory>(reader) {
-                return Mutex::new(history_data.entries);
+                return Arc::new(Mutex::new(history_data.entries));
             }
         }
-        Mutex::new(Vec::new()) // Return empty list if file doesn't exist or is invalid
+        Arc::new(Mutex::new(Vec::new())) // Return empty list if file doesn't exist or is invalid
     }
 
     pub fn clear_history(&mut self) {
