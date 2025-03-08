@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
 const HISTORY_FILE_PATH: &str = ".clipboard_history.ron";
@@ -26,8 +26,8 @@ impl Clippy {
     }
 
     // Method to run the listening thread
-    pub fn listen_for_clipboard_events(self: std::sync::Arc<Self>) {
-        let clippy_clone = std::sync::Arc::clone(&self);
+    pub fn listen_for_clipboard_events(self: Arc<Self>) {
+        let clippy_clone = Arc::clone(&self);
         thread::spawn(move || {
             let mut clipboard = Clipboard::new().expect("Failed to access clipboard");
 
@@ -104,17 +104,17 @@ impl Clippy {
         let mut buffer = [0; 512];
         if let Ok(size) = stream.read(&mut buffer) {
             let request = String::from_utf8_lossy(&buffer[..size]);
-            println!("{}", request.trim());
-            // if request.trim() == "GET_HISTORY" {
-            //     if let Ok(history) = self.history.lock() {
-            //         // Format the history using its debug representation.
-            //         let history_str = format!("{:?}", *history);
-            //         let _ = stream.write(history_str.as_bytes());
-            //     }
-            // } else if request.trim() == "CLEAR_HISTORY" {
-            //     self.clear_history();
-            //     let _ = stream.write(b"History cleared");
-            // }
+            if request.trim() == "GET_HISTORY" {
+                if let Ok(history) = self.history.lock() {
+                    // Format the history using its debug representation.
+                    let history_str = format!("{:?}", *history);
+                    let _ = stream.write(history_str.as_bytes());
+                }
+                // } else if request.trim() == "CLEAR_HISTORY" {
+                //     self.clear_history();
+                //     let _ = stream.write(b"History cleared");
+                // }
+            }
         }
     }
 }
@@ -125,9 +125,10 @@ fn main() {
     // only increases the reference count, so the underlying Clippy instance is not duplicated.
     // This lets us call methods on the same instance in both the clipboard monitoring thread
     // and the TCP listener without moving ownership permanently.
-    let clippy = std::sync::Arc::new(Clippy::new());
+    let clippy = Arc::new(Clippy::new());
+
     // This method spawns a new thread that runs an infinite loop
-    // listening for nw content copied
+    // listening for new content copied
     clippy.clone().listen_for_clipboard_events();
 
     // Start a TCP listener on a local port
