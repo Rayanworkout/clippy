@@ -2,8 +2,8 @@ use arboard::Clipboard;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{BufReader, Read, Write};
-use std::net::TcpStream;
-use std::sync::{Arc, Mutex};
+use std::net::{TcpListener, TcpStream};
+use std::sync::Mutex;
 use std::{thread, time::Duration};
 
 const HISTORY_FILE_PATH: &str = ".clipboard_history.ron";
@@ -14,7 +14,7 @@ struct ClipboardHistory {
 }
 
 pub struct Clippy {
-    history: Arc<Mutex<Vec<String>>>,
+    history: Mutex<Vec<String>>,
 }
 
 impl Clippy {
@@ -78,14 +78,14 @@ impl Clippy {
 
     /// Loads the current history from the file.
     /// Static method.
-    fn load_history() -> Arc<Mutex<Vec<String>>> {
+    fn load_history() -> Mutex<Vec<String>> {
         if let Ok(file) = fs::File::open(HISTORY_FILE_PATH) {
             let reader = BufReader::new(file);
             if let Ok(history_data) = ron::de::from_reader::<_, ClipboardHistory>(reader) {
-                return Arc::new(Mutex::new(history_data.entries));
+                return Mutex::new(history_data.entries);
             }
         }
-        Arc::new(Mutex::new(Vec::new())) // Return empty list if file doesn't exist or is invalid
+        Mutex::new(Vec::new()) // Return empty list if file doesn't exist or is invalid
     }
 
     pub fn clear_history(&mut self) {
@@ -120,7 +120,8 @@ impl Clippy {
 
 fn main() {
     let clippy = Clippy::new();
-    // Clone the Arc to pass ownership to the thread without moving the original.
+    // This method spawns a new thread that runs an infinite loop
+    // listening for nw content copied
     clippy.listen_for_clipboard_events();
 
     // Start a TCP listener on a local port
@@ -130,7 +131,6 @@ fn main() {
     // for stream in listener.incoming() {
     //     match stream {
     //         Ok(stream) => {
-    //             // Clone the Arc again so that the original remains available.
     //             clippy.listen_for_history_requests(stream);
     //         }
     //         Err(e) => {
