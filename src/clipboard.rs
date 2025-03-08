@@ -35,25 +35,22 @@ impl Clippy {
     pub fn listen_for_clipboard_events(&self) {
         // Here we use clone() because the "move" directive when launching
         // the thread takes ownership of the "self", preventing us for calling &self.history
-        let history = self.history.clone();
-        thread::spawn(move || {
-            let mut clipboard = Clipboard::new().expect("Failed to access clipboard");
+        let mut clipboard = Clipboard::new().expect("Failed to access clipboard");
 
-            loop {
-                if let Ok(content) = clipboard.get_text() {
-                    if let Ok(mut hist) = history.lock() {
-                        if !hist.contains(&content) && !content.trim().is_empty() {
-                            hist.insert(0, content.clone());
-                            if hist.len() > 100 {
-                                hist.pop();
-                            }
-                            Self::save_history(&hist);
+        loop {
+            if let Ok(content) = clipboard.get_text() {
+                if let Ok(mut hist) = self.history.lock() {
+                    if !hist.contains(&content) && !content.trim().is_empty() {
+                        hist.insert(0, content.clone());
+                        if hist.len() > 100 {
+                            hist.pop();
                         }
+                        Self::save_history(&hist);
                     }
                 }
-                thread::sleep(Duration::from_millis(800));
             }
-        });
+            thread::sleep(Duration::from_millis(800));
+        }
     }
 
     // Save history to file

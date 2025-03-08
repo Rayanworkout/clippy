@@ -1,5 +1,5 @@
-use crate::clipboard::Clippy;
 use arboard::Clipboard;
+use clippy::clipboard::Clippy;
 use eframe::egui::{self, FontId, TextStyle};
 
 pub struct ClippyApp {
@@ -76,4 +76,25 @@ impl eframe::App for ClippyApp {
         // Ensure UI updates regularly
         ctx.request_repaint();
     }
+}
+
+fn main() -> eframe::Result<()> {
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_always_on_top()
+            .with_inner_size([250.0, 340.0])
+            .with_max_inner_size([350.0, 450.0])
+            .with_maximize_button(false)
+            .with_min_inner_size([200.0, 300.0])
+            .with_position([250.0, 340.0]),
+        centered: true,
+        ..Default::default()
+    };
+
+    // And the main thread
+    eframe::run_native(
+        "Clippy",
+        options,
+        Box::new(move |_cc| Ok(Box::new(ClippyApp::new(Clippy::new())))),
+    )
 }
