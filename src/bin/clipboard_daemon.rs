@@ -16,6 +16,7 @@ use std::{thread, time::Duration};
 // Update README
 
 const HISTORY_FILE_PATH: &str = ".clipboard_history.ron";
+const MAX_HISTORY_LENGTH: usize = 100;
 
 struct Clippy {
     clipboard: Clipboard,
@@ -26,10 +27,9 @@ impl Clippy {
     fn new() -> Self {
         let clipboard = match Clipboard::new() {
             Ok(clip) => clip,
-            Err(clipboard_instance_error) => {
+            Err(clipboard_error) => {
                 panic!(
-                    "Could not create a clipboard instance, the listener daemon can not run: {}",
-                    clipboard_instance_error
+                    "Could not create a clipboard instance, the listener daemon can not run: {clipboard_error}"
                 );
             }
         };
@@ -41,14 +41,14 @@ impl Clippy {
         }
     }
 
-    /// Monitor clipboard changes
+    /// Monitor clipboard changes and send a request to the UI on copy.
     pub fn listen_for_clipboard_events(&mut self) {
         loop {
             match self.clipboard.get_text() {
                 Ok(content) => {
                     if !self.history.contains(&content) && !content.trim().is_empty() {
                         self.history.insert(0, content);
-                        if self.history.len() > 100 {
+                        if self.history.len() > MAX_HISTORY_LENGTH {
                             self.history.pop();
                         }
                         // Save new history to file
@@ -58,26 +58,36 @@ impl Clippy {
                     }
                 }
 
-                Err(e) => {
-                    println!("Error getting the clipboard content: {}", e);
+                Err(clipboard_content_error) => {
+                    eprintln!("Error getting the clipboard content: {clipboard_content_error}");
                 }
             }
             thread::sleep(Duration::from_millis(800));
         }
     }
 
-    // Save history to file
+    /// Save clipboard history to ron file.
     fn save_history(&self) {
-        let history_data = Vec::from(self.history.clone());
+        match fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(HISTORY_FILE_PATH)
+        {
+            Ok(mut file) => {
+                let history_data = Vec::from(self.history.clone());
+                let serialized_history =
+                    ron::ser::to_string(&history_data).unwrap_or_else(|serialization_error| {
+                        panic!("Could not serialize history: {serialization_error}");
+                    });
 
-        if let Ok(serialized) = ron::ser::to_string(&history_data) {
-            if let Ok(mut file) = fs::OpenOptions::new()
-                .create(true)
-                .write(true)
-                .truncate(true)
-                .open(HISTORY_FILE_PATH)
-            {
-                let _ = file.write_all(serialized.as_bytes());
+                file.write_all(serialized_history.as_bytes())
+                    .unwrap_or_else(|write_error| {
+                        panic!("Could not write serialized history to {HISTORY_FILE_PATH}: {write_error}");
+                    });
+            }
+            Err(e) => {
+                panic!("Could not create or open {HISTORY_FILE_PATH}: {e}");
             }
         }
     }
@@ -91,15 +101,14 @@ impl Clippy {
                 match ron::de::from_reader::<_, Vec<String>>(reader) {
                     Ok(history_data) => history_data,
                     Err(deser_err) => {
-                        eprintln!("Error deserializing history: {}", deser_err);
+                        eprintln!("Error deserializing history: {deser_err}");
                         Vec::new()
                     }
                 }
             }
             Err(open_err) => {
                 eprintln!(
-                    "Error opening file {}: {}\nFalling back to an empty history.",
-                    HISTORY_FILE_PATH, open_err
+                    "Error opening file {HISTORY_FILE_PATH}: {open_err}\nFalling back to an empty history.",
                 );
                 Vec::new()
             }
