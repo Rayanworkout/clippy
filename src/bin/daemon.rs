@@ -1,8 +1,8 @@
 use arboard::Clipboard;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::{BufReader, Read, Write};
-use std::net::TcpStream;
+use std::io::{BufReader, Write};
+use std::net::{Shutdown, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
@@ -116,14 +116,13 @@ impl Clippy {
         let mut stream = TcpStream::connect("127.0.0.1:7878").expect("Could not bind");
         if let Ok(history) = self.history.lock() {
             let history_str = format!("{:?}\n", *history);
-            println!("Sending: {}", history_str);
-            let _ = stream.write(history_str.as_bytes());
-
-            // Read the server's response into a string.
-            let mut response = String::new();
             stream
-                .read_to_string(&mut response)
-                .expect("Failed to read from stream");
+                .write_all(history_str.as_bytes())
+                .expect("Could not send message");
+
+            stream
+                .shutdown(Shutdown::Write)
+                .expect("Could not close the connexion");
         }
     }
 }

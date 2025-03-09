@@ -20,16 +20,14 @@ impl ClippyApp {
     }
 
     fn listen_for_history_updates(&self, mut stream: TcpStream) {
-        let mut buffer = [0; 512];
-        if let Ok(size) = stream.read(&mut buffer) {
-            let request = String::from_utf8_lossy(&buffer[..size]);
-            if let Ok(mut history) = self.history_cache.lock() {
-                // Format the history using its debug representation.
-                *history = from_str(&request).expect("Failed to parse RON");
-                println!("Received history: {:?}", history);
-            }
+        let mut buffer = Vec::new();
+        stream.read_to_end(&mut buffer).expect("Failed to read from stream");
+        let request = String::from_utf8_lossy(&buffer);
+        if let Ok(mut history) = self.history_cache.lock() {
+            *history = from_str(&request).expect("Failed to parse RON");
         }
     }
+    
 }
 
 impl eframe::App for ClippyApp {
