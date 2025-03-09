@@ -6,6 +6,17 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
+// TODO
+// Reverse TCP client / server
+// Clean code / Properly handle errors
+// Add comments to describe behaviour
+// Fix refresh rates / monitor RAM usage
+// Found a way to easily launch it (both binaries)
+// Reorganize / modularize files
+// Handle history file path depending on OS.
+// Search through history
+// Update README
+
 const HISTORY_FILE_PATH: &str = ".clipboard_history.ron";
 
 #[derive(Serialize, Deserialize)]
@@ -13,12 +24,12 @@ struct ClipboardHistory {
     entries: Vec<String>,
 }
 
-pub struct Clippy {
+struct Clippy {
     history: Mutex<Vec<String>>,
 }
 
 impl Clippy {
-    pub fn new() -> Self {
+    fn new() -> Self {
         // We load the old history when instanciating a new object
         Self {
             history: Self::load_history(),
@@ -45,6 +56,7 @@ impl Clippy {
                                 // They would be waiting for each other indefinitely.
                                 drop(history);
                                 self.save_history();
+                                // Send the TCP request to the UI
                             }
                         }
                         thread::sleep(Duration::from_millis(800));
@@ -89,7 +101,7 @@ impl Clippy {
         Mutex::new(Vec::new()) // Return empty list if file doesn't exist or is invalid
     }
 
-    pub fn clear_history(&mut self) {
+    fn _clear_history(&mut self) {
         if let Ok(mut history) = self.history.lock() {
             history.clear(); // Clear history in memory
             let _ = fs::remove_file(HISTORY_FILE_PATH); // Delete history file
@@ -100,7 +112,11 @@ impl Clippy {
         // let _ = clipboard.clear();
     }
 
-    pub fn listen_for_history_requests(&self, mut stream: TcpStream) {
+    fn send_updated_history(&self) {
+        
+    }
+
+    fn listen_for_history_requests(&self, mut stream: TcpStream) {
         let mut buffer = [0; 512];
         if let Ok(size) = stream.read(&mut buffer) {
             let request = String::from_utf8_lossy(&buffer[..size]);

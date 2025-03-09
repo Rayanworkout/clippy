@@ -18,7 +18,6 @@ cargo build --release
 sudo cp target/release/clippy /usr/local/bin
 
 nohup clippy &>/dev/null &
-
 ```
 
 The application should now be running and listening for your clipboard changes.
