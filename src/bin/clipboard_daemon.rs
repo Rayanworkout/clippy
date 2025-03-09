@@ -1,5 +1,4 @@
 use arboard::Clipboard;
-use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{BufReader, Write};
 use std::net::{Shutdown, TcpStream};
@@ -17,11 +16,6 @@ use std::{thread, time::Duration};
 // Update README
 
 const HISTORY_FILE_PATH: &str = ".clipboard_history.ron";
-
-#[derive(Serialize, Deserialize)]
-struct ClipboardHistory {
-    entries: Vec<String>,
-}
 
 struct Clippy {
     clipboard: Clipboard,
@@ -74,9 +68,7 @@ impl Clippy {
 
     // Save history to file
     fn save_history(&self) {
-        let history_data = ClipboardHistory {
-            entries: self.history.clone(),
-        };
+        let history_data = Vec::from(self.history.clone());
 
         if let Ok(serialized) = ron::ser::to_string(&history_data) {
             if let Ok(mut file) = fs::OpenOptions::new()
@@ -96,8 +88,8 @@ impl Clippy {
         match fs::File::open(HISTORY_FILE_PATH) {
             Ok(file) => {
                 let reader = BufReader::new(file);
-                match ron::de::from_reader::<_, ClipboardHistory>(reader) {
-                    Ok(history_data) => history_data.entries,
+                match ron::de::from_reader::<_, Vec<String>>(reader) {
+                    Ok(history_data) => history_data,
                     Err(deser_err) => {
                         eprintln!("Error deserializing history: {}", deser_err);
                         Vec::new()
