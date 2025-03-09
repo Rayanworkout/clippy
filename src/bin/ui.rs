@@ -14,20 +14,22 @@ pub struct ClippyApp {
 
 impl ClippyApp {
     fn new() -> Self {
+        let empty_cache = Vec::new();
         Self {
-            history_cache: Arc::new(Mutex::new(Vec::new())),
+            history_cache: Arc::new(Mutex::new(empty_cache)),
         }
     }
 
     fn listen_for_history_updates(&self, mut stream: TcpStream) {
         let mut buffer = Vec::new();
-        stream.read_to_end(&mut buffer).expect("Failed to read from stream");
+        stream
+            .read_to_end(&mut buffer)
+            .expect("Failed to read from stream");
         let request = String::from_utf8_lossy(&buffer);
         if let Ok(mut history) = self.history_cache.lock() {
             *history = from_str(&request).expect("Failed to parse RON");
         }
     }
-    
 }
 
 impl eframe::App for ClippyApp {
@@ -116,7 +118,7 @@ fn main() -> eframe::Result<()> {
     // Spawn a background thread that periodically updates the shared history.
     thread::spawn(move || {
         let listener = TcpListener::bind("127.0.0.1:7878").expect("Could not bind");
-        println!("Daemon listening on port 7878 ...");
+        println!("UI server listening on port 7878 ...");
 
         for stream in listener.incoming() {
             match stream {

@@ -17,6 +17,7 @@ use std::{thread, time::Duration};
 
 const HISTORY_FILE_PATH: &str = ".clipboard_history.ron";
 const MAX_HISTORY_LENGTH: usize = 100;
+const CLIPBOARD_REFRESH_RATE_MS: u64 = 800;
 
 struct Clippy {
     clipboard: Clipboard,
@@ -25,6 +26,8 @@ struct Clippy {
 
 impl Clippy {
     fn new() -> Self {
+        // Instanciate a clipboard object that will be used to access
+        // or update the system clipboard.
         let clipboard = match Clipboard::new() {
             Ok(clip) => clip,
             Err(clipboard_error) => {
@@ -34,7 +37,8 @@ impl Clippy {
             }
         };
 
-        // We load the old history when instanciating a new object
+        // We load the old history when instanciating
+        // a new object to ensure history persistance
         Self {
             clipboard,
             history: Self::load_history(),
@@ -43,11 +47,20 @@ impl Clippy {
 
     /// Monitor clipboard changes and send a request to the UI on copy.
     pub fn listen_for_clipboard_events(&mut self) {
+        println!("Clipboard daemon listening for clipboard changes ...");
+        let mut consecutive_clipboard_failures = 0;
+
         loop {
             match self.clipboard.get_text() {
                 Ok(content) => {
+                    if consecutive_clipboard_failures > 0 {
+                        consecutive_clipboard_failures = 0
+                    }
                     if !self.history.contains(&content) && !content.trim().is_empty() {
+                        // Insert new value at first index
                         self.history.insert(0, content);
+
+                        // Keep only the wanted number of entries
                         if self.history.len() > MAX_HISTORY_LENGTH {
                             self.history.pop();
                         }
@@ -60,9 +73,14 @@ impl Clippy {
 
                 Err(clipboard_content_error) => {
                     eprintln!("Error getting the clipboard content: {clipboard_content_error}");
+                    consecutive_clipboard_failures += 1;
+
+                    if consecutive_clipboard_failures == 3 {
+                        panic!("Error getting the clipboard content 3 times in a row, aborting daemon run.")
+                    }
                 }
             }
-            thread::sleep(Duration::from_millis(800));
+            thread::sleep(Duration::from_millis(CLIPBOARD_REFRESH_RATE_MS));
         }
     }
 
@@ -108,7 +126,7 @@ impl Clippy {
             }
             Err(open_err) => {
                 eprintln!(
-                    "Error opening file {HISTORY_FILE_PATH}: {open_err}\nFalling back to an empty history.",
+                    "Could not open \"{HISTORY_FILE_PATH}\": {open_err}\nFalling back to an empty history.",
                 );
                 Vec::new()
             }
@@ -120,8 +138,7 @@ impl Clippy {
         let _ = fs::remove_file(HISTORY_FILE_PATH); // Delete history file
 
         // We could also clear the current state of the keyboard
-        // let mut clipboard = Clipboard::new().expect("Failed to access clipboard");
-        // let _ = clipboard.clear();
+        // let _ = self.clipboard.clear();
     }
 
     fn send_updated_history(&self) {
