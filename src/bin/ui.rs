@@ -1,9 +1,8 @@
 use ron::de::from_str;
-use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::io::Read;
+use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
 
 use arboard::Clipboard;
 use eframe::egui::{self, FontId, TextStyle};
@@ -20,25 +19,16 @@ impl ClippyApp {
         }
     }
 
-    /// Fetch the history from the clipboard daemon
-    /// through a TCP request
-    fn get_history(&self) -> Vec<String> {
-        let mut stream = TcpStream::connect("127.0.0.1:7878").expect("Could not bind");
-
-        let request = "GET_HISTORY\n";
-        stream
-            .write_all(request.as_bytes())
-            .expect("Failed to write to stream");
-
-        // Read the server's response into a string.
-        let mut response = String::new();
-        stream
-            .read_to_string(&mut response)
-            .expect("Failed to read from stream");
-
-        let history: Vec<String> = from_str(&response).expect("Failed to parse RON");
-
-        history
+    fn listen_for_history_updates(&self, mut stream: TcpStream) {
+        let mut buffer = [0; 512];
+        if let Ok(size) = stream.read(&mut buffer) {
+            let request = String::from_utf8_lossy(&buffer[..size]);
+            if let Ok(mut history) = self.history_cache.lock() {
+                // Format the history using its debug representation.
+                *history = from_str(&request).expect("Failed to parse RON");
+                println!("Received history: {:?}", history);
+            }
+        }
     }
 }
 
@@ -124,17 +114,22 @@ fn main() -> eframe::Result<()> {
     // Create a ClippyApp instance normally (not wrapped in an Arc).
     let clippy_ui = ClippyApp::new();
     let clippy_for_thread = clippy_ui.clone();
-    // Clone only the shared history_cache for the background thread.
-    let shared_history = Arc::clone(&clippy_ui.history_cache);
 
     // Spawn a background thread that periodically updates the shared history.
-    thread::spawn(move || loop {
-        let history = clippy_for_thread.get_history();
-        {
-            let mut data = shared_history.lock().unwrap();
-            *data = history;
+    thread::spawn(move || {
+        let listener = TcpListener::bind("127.0.0.1:7878").expect("Could not bind");
+        println!("Daemon listening on port 7878 ...");
+
+        for stream in listener.incoming() {
+            match stream {
+                Ok(stream) => {
+                    let _history = clippy_for_thread.listen_for_history_updates(stream);
+                }
+                Err(e) => {
+                    eprintln!("Failed to accept connection: {}", e);
+                }
+            }
         }
-        thread::sleep(Duration::from_secs(3));
     });
 
     println!("Running app ...");

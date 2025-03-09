@@ -2,7 +2,7 @@ use arboard::Clipboard;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{BufReader, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
@@ -11,6 +11,7 @@ use std::{thread, time::Duration};
 // Clean code / Properly handle errors
 // Add comments to describe behaviour
 // Fix refresh rates / monitor RAM usage
+// Use variables for TCP address:port
 // Found a way to easily launch it (both binaries)
 // Reorganize / modularize files
 // Handle history file path depending on OS.
@@ -39,34 +40,33 @@ impl Clippy {
     // Method to run the listening thread
     pub fn listen_for_clipboard_events(self: Arc<Self>) {
         let clippy_clone = Arc::clone(&self);
-        thread::spawn(move || {
-            let mut clipboard = Clipboard::new().expect("Failed to access clipboard");
+        let mut clipboard = Clipboard::new().expect("Failed to access clipboard");
 
-            loop {
-                match clipboard.get_text() {
-                    Ok(content) => {
-                        if let Ok(mut history) = clippy_clone.history.lock() {
-                            if !history.contains(&content) && !content.trim().is_empty() {
-                                history.insert(0, content.clone());
-                                if history.len() > 100 {
-                                    history.pop();
-                                }
-                                // We drop the lock in order not to prevent a dead lock
-                                // if both the loop and self.save_history() hold the lock()
-                                // They would be waiting for each other indefinitely.
-                                drop(history);
-                                self.save_history();
-                                // Send the TCP request to the UI
+        loop {
+            match clipboard.get_text() {
+                Ok(content) => {
+                    if let Ok(mut history) = clippy_clone.history.lock() {
+                        if !history.contains(&content) && !content.trim().is_empty() {
+                            history.insert(0, content.clone());
+                            if history.len() > 100 {
+                                history.pop();
                             }
+                            // We drop the lock in order not to prevent a dead lock
+                            // if both the loop and self.save_history() hold the lock()
+                            // They would be waiting for each other indefinitely.
+                            drop(history);
+                            self.save_history();
+                            // Send the TCP request to the UI
+                            self.send_updated_history();
                         }
-                        thread::sleep(Duration::from_millis(800));
                     }
-                    Err(e) => {
-                        println!("Error getting the clipboard content: {}", e);
-                    }
+                    thread::sleep(Duration::from_millis(800));
+                }
+                Err(e) => {
+                    println!("Error getting the clipboard content: {}", e);
                 }
             }
-        });
+        }
     }
 
     // Save history to file
@@ -113,24 +113,17 @@ impl Clippy {
     }
 
     fn send_updated_history(&self) {
-        
-    }
+        let mut stream = TcpStream::connect("127.0.0.1:7878").expect("Could not bind");
+        if let Ok(history) = self.history.lock() {
+            let history_str = format!("{:?}\n", *history);
+            println!("Sending: {}", history_str);
+            let _ = stream.write(history_str.as_bytes());
 
-    fn listen_for_history_requests(&self, mut stream: TcpStream) {
-        let mut buffer = [0; 512];
-        if let Ok(size) = stream.read(&mut buffer) {
-            let request = String::from_utf8_lossy(&buffer[..size]);
-            if request.trim() == "GET_HISTORY" {
-                if let Ok(history) = self.history.lock() {
-                    // Format the history using its debug representation.
-                    let history_str = format!("{:?}", *history);
-                    let _ = stream.write(history_str.as_bytes());
-                }
-                // } else if request.trim() == "CLEAR_HISTORY" {
-                //     self.clear_history();
-                //     let _ = stream.write(b"History cleared");
-                // }
-            }
+            // Read the server's response into a string.
+            let mut response = String::new();
+            stream
+                .read_to_string(&mut response)
+                .expect("Failed to read from stream");
         }
     }
 }
@@ -146,19 +139,4 @@ fn main() {
     // This method spawns a new thread that runs an infinite loop
     // listening for new content copied
     clippy.clone().listen_for_clipboard_events();
-
-    // Start a TCP listener on a local port
-    let listener = TcpListener::bind("127.0.0.1:7878").expect("Could not bind");
-    println!("Daemon listening on port 7878 ...");
-
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                clippy.listen_for_history_requests(stream);
-            }
-            Err(e) => {
-                eprintln!("Failed to accept connection: {}", e);
-            }
-        }
-    }
 }
