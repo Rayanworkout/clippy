@@ -62,10 +62,14 @@ impl Clippy {
                                 if history.len() > MAX_HISTORY_LENGTH {
                                     history.pop();
                                 }
+
+                                // Drop the lock otherwise save_history() won't be
+                                // able to access the variable
+                                drop(history);
                                 // Save new history to file
                                 self.save_history()?;
                                 // Send the TCP request to the UI
-                                self.send_history()?;
+                                // self.send_history()?;
                             }
                         }
                     }
@@ -82,6 +86,53 @@ impl Clippy {
 
             thread::sleep(Duration::from_millis(CLIPBOARD_REFRESH_RATE_MS));
         }
+    }
+
+    /// Listen for directives coming from the UI
+    /// for example clear_history() or the initial
+    /// history request when starting.
+    /// This way the UI can stop and start while always
+    /// having an up to date history as long as
+    /// the clipboard daemon is running.
+    fn listen_for_ui(self: Arc<Self>) {
+        println!("Clipboard daemon listening for UI TCP requests ...");
+        let clippy = Arc::clone(&self);
+        thread::spawn(move || -> Result<()> {
+            let mut buffer = [0; 512];
+            let listener = TcpListener::bind(format!("127.0.0.1:{TCP_PORT}")).context(format!(
+                "UI listener could not bind to \"127.0.0.1:{TCP_PORT}\"."
+            ))?;
+
+            for stream in listener.incoming() {
+                let mut stream =
+                    stream.context("Could not get stream from incoming UI connexion.")?;
+                let size = stream
+                    .read(&mut buffer)
+                    .context("Could not read the incoming request from the UI.")?;
+
+                let request = String::from_utf8_lossy(&buffer[..size]);
+
+                if request.trim() == "GET_HISTORY" {
+                    let history_str = if let Ok(history) = self.history.lock() {
+                        // Format the history using its debug representation.
+                        println!("Received request, sending history");
+                        format!("{:?}", *history)
+                    } else {
+                        "[]".to_string()
+                    };
+
+                    stream
+                        .write(history_str.as_bytes())
+                        .context("Could not send the history to UI, stream.write() failed.")?;
+                    // clippy.send_history(stream)?;
+                } else if request.trim() == "RESET_HISTORY" {
+                    clippy
+                        .clear_history()
+                        .context("Could not clear history after UI request.")?;
+                }
+            }
+            Ok(())
+        });
     }
 
     /// Save clipboard history to ron file.
@@ -140,60 +191,10 @@ impl Clippy {
         Ok(())
     }
 
-    /// Listen for directives coming from the UI
-    /// for example clear_history() or the initial
-    /// history request when starting.
-    /// This way the UI can stop and start while always
-    /// having an up to date history as long as
-    /// the clipboard daemon is running.
-    fn listen_for_ui(self: Arc<Self>) {
-        println!("Clipboard daemon listening for UI TCP requests ...");
-        let clippy = Arc::clone(&self);
-        let _ = thread::spawn(move || -> Result<()> {
-            let mut buffer = [0; 512];
-            let listener = TcpListener::bind(format!("127.0.0.1:{TCP_PORT}")).context(format!(
-                "UI listener could not bind to 127.0.0.1:{TCP_PORT}"
-            ))?;
-
-            for stream in listener.incoming() {
-                let mut stream =
-                    stream.context("Could not get stream from incoming UI connexion.")?;
-                let size = stream
-                    .read(&mut buffer)
-                    .context("Could not read the incoming request from the UI.")?;
-
-                let request = String::from_utf8_lossy(&buffer[..size]);
-
-                if request.trim() == "GET_HISTORY" {
-                    let history_str = if let Ok(history) = self.history.lock() {
-                        // Format the history using its debug representation.
-                        println!("Received request, sending history");
-                        format!("{:?}", *history)
-                    } else {
-                        "[]".to_string()
-                    };
-
-                    stream
-                        .write(history_str.as_bytes())
-                        .context("Could not send the history to UI, stream.write() failed.")?;
-                    // clippy.send_history(stream)?;
-                } else if request.trim() == "RESET_HISTORY" {
-                    clippy
-                        .clear_history()
-                        .context("Could not clear history after UI request.")?;
-
-                    stream
-                        .write(b"OK")
-                        .context("Could not send the history to UI, stream.write() failed.")?;
-                }
-            }
-            Ok(())
-        }).join();
-    }
-
-    fn send_history(&self) -> Result<()> {
-        let mut stream = TcpStream::connect(format!("127.0.0.1:{TCP_PORT}"))
-            .context(format!("Could not bind TcpStream to 127.0.0.1:{TCP_PORT}"))?;
+    fn _send_history(&self) -> Result<()> {
+        let mut stream = TcpStream::connect(format!("127.0.0.1:{TCP_PORT}")).context(format!(
+            "Could not bind TcpStream to \"127.0.0.1:{TCP_PORT}\"."
+        ))?;
 
         stream.write_all(format!("{:?}\n", self.history).as_bytes())?;
 
@@ -212,7 +213,7 @@ fn main() -> Result<()> {
     Arc::clone(&clippy).listen_for_ui();
 
     // Monitor clipboard events on the main thread.
-    // clippy.monitor_clipboard_events()?;
+    clippy.monitor_clipboard_events()?;
 
     Ok(())
 }
