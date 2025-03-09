@@ -21,5 +21,4 @@ if __name__ == "__main__":
     response = send_request("GET_HISTORY")
     print("Response:", response)
 
-    # response = send_request("RESET_HISTORY")
-    # print("Response:", response)
+    response = send_request("RESET_HISTORY")

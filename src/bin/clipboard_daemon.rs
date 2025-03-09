@@ -63,13 +63,20 @@ impl Clippy {
                                     history.pop();
                                 }
 
-                                // Drop the lock otherwise save_history() won't be
+                                // Send the TCP request to the UI
+                                // But only if this is not the first startup
+                                if history.len() > 1 {
+                                    let stream = TcpStream::connect(format!("127.0.0.1:{TCP_PORT}")).context(
+                                        format!("Clipboard daemon could not bind to \"127.0.0.1:{TCP_PORT}\"."),
+                                    )?;
+                                    self.send_history(stream)?;
+                                }
+                                // Explicitely drop the lock otherwise save_history() won't be
                                 // able to access the variable
                                 drop(history);
+
                                 // Save new history to file
                                 self.save_history()?;
-                                // Send the TCP request to the UI
-                                // self.send_history()?;
                             }
                         }
                     }
@@ -113,22 +120,15 @@ impl Clippy {
                 let request = String::from_utf8_lossy(&buffer[..size]);
 
                 if request.trim() == "GET_HISTORY" {
-                    let history_str = if let Ok(history) = self.history.lock() {
-                        // Format the history using its debug representation.
-                        println!("Received request, sending history");
-                        format!("{:?}", *history)
-                    } else {
-                        "[]".to_string()
-                    };
-
-                    stream
-                        .write(history_str.as_bytes())
+                    clippy
+                        .send_history(stream)
                         .context("Could not send the history to UI, stream.write() failed.")?;
-                    // clippy.send_history(stream)?;
                 } else if request.trim() == "RESET_HISTORY" {
                     clippy
                         .clear_history()
                         .context("Could not clear history after UI request.")?;
+
+                    stream.write(b"OK")?;
                 }
             }
             Ok(())
@@ -191,16 +191,13 @@ impl Clippy {
         Ok(())
     }
 
-    fn _send_history(&self) -> Result<()> {
-        let mut stream = TcpStream::connect(format!("127.0.0.1:{TCP_PORT}")).context(format!(
-            "Could not bind TcpStream to \"127.0.0.1:{TCP_PORT}\"."
-        ))?;
-
-        stream.write_all(format!("{:?}\n", self.history).as_bytes())?;
-
-        stream
-            .shutdown(Shutdown::Write)
-            .context("Could not close the TCP connexion when sending history.")?;
+    fn send_history(&self, mut stream: TcpStream) -> Result<()> {
+        if let Ok(history) = self.history.lock() {
+            stream.write_all(format!("{:?}\n", history).as_bytes())?;
+            stream
+                .shutdown(Shutdown::Write)
+                .context("Could not close the TCP connexion when sending history.")?;
+        }
 
         Ok(())
     }
