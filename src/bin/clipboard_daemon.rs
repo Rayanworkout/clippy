@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use arboard::Clipboard;
 use core::panic;
 use std::fs;
@@ -7,21 +7,16 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
-// Implement clear_history when clicking on trash
 // Refactor UI
-// Order methods
-// Clean code / Properly handle errors
-// Retry mechanism for requests
-// Monitor RAM usage
-// Timeout connexion
-// Logging (requesting history, sending back history ...)
-// Found a way to easily launch it (both binaries)
-// Reorganize / modularize files
-// Handle history file path depending on OS.
+// Implement clear_history when clicking on trash
 // Search through history
+// Handle history file path depending on OS.
+// Reorganize / modularize files ?
+// Logging (requesting history, sending back history ...)
+// Find a way to easily launch it (both binaries)
 // Implement config file
+// Monitor RAM usage
 // Update README
-// Check what happens after the UI is closed and opened again
 
 const HISTORY_FILE_PATH: &str = ".clipboard_history.ron";
 const MAX_HISTORY_LENGTH: usize = 100;
@@ -59,33 +54,34 @@ impl Clippy {
                         if consecutive_clipboard_failures > 0 {
                             consecutive_clipboard_failures = 0
                         }
-                        if let Ok(mut history) = self.history.lock() {
-                            if !history.contains(&content) && !content.trim().is_empty() {
-                                // Insert new value at first index
-                                history.insert(0, content);
 
-                                let history_len = history.len();
-                                // Keep only the wanted number of entries
-                                if history_len > MAX_HISTORY_LENGTH {
-                                    history.pop();
-                                }
+                        let mut history = self
+                            .history
+                            .lock()
+                            .map_err(|e| anyhow!("Could not acquire history lock: {}", e))?;
 
-                                // Explicitly drop the lock otherwise save_history() won't be
-                                // able to access the variable
-                                drop(history);
+                        if !history.contains(&content) && !content.trim().is_empty() {
+                            // Insert new value at first index
+                            history.insert(0, content);
 
-                                // Send the TCP request to the UI
-                                // But only if this is not the first startup
-                                // if history_len > 1 {
-                                //     let stream = TcpStream::connect(format!("127.0.0.1:{UI_SENDING_PORT}")).context(
-                                //         format!("Clipboard daemon could not bind to \"127.0.0.1:{UI_SENDING_PORT}\"."),
-                                //     )?;
-                                //     self.send_history(stream)?;
-                                // }
-
-                                // Save new history to file
-                                self.save_history()?;
+                            let history_len = history.len();
+                            // Keep only the wanted number of entries
+                            if history_len > MAX_HISTORY_LENGTH {
+                                history.pop();
                             }
+
+                            // Explicitly drop the lock otherwise save_history() won't be
+                            // able to access the variable
+                            drop(history);
+
+                            // Send the TCP request to the UI
+                            let stream = TcpStream::connect(format!("127.0.0.1:{UI_SENDING_PORT}")).context(
+                                    format!("Clipboard daemon could not bind to \"127.0.0.1:{UI_SENDING_PORT}\"."),
+                                )?;
+                            self.send_history(stream)?;
+
+                            // Save new history to file
+                            self.save_history()?;
                         }
                     }
                     Err(clipboard_content_error) => {
@@ -112,11 +108,9 @@ impl Clippy {
         thread::spawn(move || -> Result<()> {
             let mut buffer = [0; 512];
 
-            let listener = TcpListener::bind(format!("127.0.0.1:{UI_LISTENING_PORT}"))
-                .context(format!(
-                    "UI listener could not bind to \"127.0.0.1:{UI_SENDING_PORT}\"."
-                ))
-                .unwrap();
+            let listener = TcpListener::bind(format!("127.0.0.1:{UI_LISTENING_PORT}")).context(
+                format!("UI listener could not bind to \"127.0.0.1:{UI_SENDING_PORT}\"."),
+            )?;
 
             let mut get_stream_consecutive_failures = 0;
             for stream in listener.incoming() {
@@ -173,16 +167,19 @@ impl Clippy {
             .open(HISTORY_FILE_PATH)
             .context(format!("Could not create or open {HISTORY_FILE_PATH}"))?;
 
-        if let Ok(history) = self.history.lock() {
-            let history_data = Vec::from(history.clone());
-            let serialized_history = ron::ser::to_string(&history_data)
-                .context("Could not serialize history when saving to file.")?;
+        let history = self
+            .history
+            .lock()
+            .map_err(|e| anyhow!("Could not acquire history lock: {}", e))?;
 
-            file.write_all(serialized_history.as_bytes())
-                .context(format!(
-                    "Could not write serialized history to {HISTORY_FILE_PATH}"
-                ))?;
-        }
+        let history_data = Vec::from(history.clone());
+        let serialized_history = ron::ser::to_string(&history_data)
+            .context("Could not serialize history when saving to file.")?;
+
+        file.write_all(serialized_history.as_bytes())
+            .context(format!(
+                "Could not write serialized history to {HISTORY_FILE_PATH}"
+            ))?;
 
         Ok(())
     }
@@ -210,10 +207,13 @@ impl Clippy {
     }
 
     fn clear_history(&self) -> Result<()> {
-        if let Ok(mut history) = self.history.lock() {
-            history.clear(); // Clear history in memory
-            fs::remove_file(HISTORY_FILE_PATH).context("Could not delete the history file.")?;
-        }
+        let mut history = self
+            .history
+            .lock()
+            .map_err(|e| anyhow!("Could not acquire history lock: {}", e))?;
+
+        history.clear(); // Clear history in memory
+        fs::remove_file(HISTORY_FILE_PATH).context("Could not delete the history file.")?;
 
         // We could also clear the current state of the keyboard
         // self.clipboard.clear()?;
@@ -221,17 +221,20 @@ impl Clippy {
     }
 
     fn send_history(&self, mut stream: TcpStream) -> Result<()> {
-        let history = self.history.lock()
+        let history = self
+            .history
+            .lock()
             .map_err(|e| anyhow!("Could not acquire history lock: {}", e))?;
-        
+
         for attempt in 0..STREAM_MAX_RETRIES {
             let send_result = (|| -> Result<()> {
                 stream.write_all(format!("{:?}\n", history).as_bytes())?;
-                stream.shutdown(Shutdown::Write)
+                stream
+                    .shutdown(Shutdown::Write)
                     .context("Could not close the TCP connection when sending history.")?;
                 Ok(())
             })();
-            
+
             match send_result {
                 Ok(()) => return Ok(()),
                 Err(e) => {
@@ -245,10 +248,12 @@ impl Clippy {
                 }
             }
         }
-        
-        Err(anyhow::anyhow!("Could not send history to UI {} times in a row", STREAM_MAX_RETRIES))
+
+        Err(anyhow::anyhow!(
+            "Could not send history to UI {} times in a row",
+            STREAM_MAX_RETRIES
+        ))
     }
-    
 }
 
 fn main() -> Result<()> {

@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Context, Result};
 use ron::de::from_str;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -21,7 +22,8 @@ impl ClippyApp {
         let clippy = ClippyApp {
             history_cache: Arc::new(Mutex::new(empty_cache)),
         };
-        clippy.get_initial_history();
+
+        let _ = clippy.fill_initial_history();
 
         clippy
     }
@@ -37,25 +39,45 @@ impl ClippyApp {
         }
     }
 
-    fn get_initial_history(&self) {
-        let mut stream =
-            TcpStream::connect(format!("127.0.0.1:{DAEMON_SENDING_PORT}")).expect("Could not bind");
+    fn fill_initial_history(&self) -> Result<()> {
+        let request_result = (|| -> Result<String> {
+            let mut stream = TcpStream::connect(format!("127.0.0.1:{DAEMON_SENDING_PORT}"))
+                .context(format!(
+                "Initial history request could not bind to \"127.0.0.1:{DAEMON_SENDING_PORT}\"."
+            ))?;
 
-        let request = "GET_HISTORY\n";
-        stream
-            .write_all(request.as_bytes())
-            .expect("Failed to write to stream");
+            let request = "GET_HISTORY\n";
 
-        // Read the server's response into a string.
-        let mut response = String::new();
-        stream
-            .read_to_string(&mut response)
-            .expect("Failed to read from stream");
+            stream
+                .write_all(request.as_bytes())
+                .expect("Failed to write to stream");
 
-        if let Ok(mut history) = self.history_cache.lock() {
-            *history = from_str(&response).expect("Failed to parse RON");
+            // Read the server's response into a string.
+            let mut response = String::new();
+            stream
+                .read_to_string(&mut response)
+                .context("Failed to read from stream")?;
+
+            Ok(response)
+        })();
+
+        let mut history = self
+            .history_cache
+            .lock()
+            .map_err(|e| anyhow!("Could not acquire history lock: {}", e))?;
+
+        if let Ok(old_history) = request_result {
+            *history =
+                from_str(&old_history).context("Failed to parse initial history with RON")?;
+            println!("Successfully loaded the initial history.");
+        } else {
+            eprintln!(
+                "Could not fetch history from clipboard daemon.\nFalling back to an empty history.\n",
+            );
+            *history = from_str("")?;
         }
-        println!("Successfully loaded the initial history.");
+
+        Ok(())
     }
 }
 
