@@ -2,6 +2,8 @@
 
 Easily manage your clipboard entries with a minimal UI.
 
+_Currently under development._
+
 ![Clippy Screenshot](./screenshot.png)
 
 ## Installation (Linux)

@@ -238,7 +238,6 @@ impl eframe::App for ClippyApp {
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_always_on_top()
             .with_inner_size([350.0, 450.0])
             .with_max_inner_size([350.0, 450.0])
             .with_maximize_button(false)

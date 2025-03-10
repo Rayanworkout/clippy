@@ -7,12 +7,6 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
-// https://egui.info/examples/
-
-// TODO
-// Search through history
-// Reorganize / modularize files ?
-// Add syntax highlight support ?
 // Logging (requesting history, sending back history ...)
 // Implement config file
 // Find a way to easily launch it (both binaries)
