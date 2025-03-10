@@ -2,7 +2,7 @@
 import socket
 
 TCP_IP = "127.0.0.1"
-TCP_PORT = 7878  # Replace with your TCP port if different
+TCP_PORT = 7879  # Replace with your TCP port if different
 BUFFER_SIZE = 1024  # Adjust buffer size as needed
 
 
@@ -18,7 +18,7 @@ def send_request(request: str) -> str:
 
 
 if __name__ == "__main__":
-    response = send_request("GET_HISTORY")
-    print("Response:", response)
+    # response = send_request("GET_HISTORY")
+    # print("Response:", response)
 
     response = send_request("RESET_HISTORY")

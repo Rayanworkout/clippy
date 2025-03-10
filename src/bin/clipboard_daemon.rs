@@ -29,8 +29,7 @@ const CLIPBOARD_REFRESH_RATE_MS: u64 = 800;
 
 const UI_SENDING_PORT: u32 = 7878;
 const UI_LISTENING_PORT: u32 = 7879;
-const MAX_BIND_RETRIES: u32 = 5;
-
+const GET_LISTENING_STREAM_MAX_RETRIES: u32 = 5;
 struct Clippy {
     clipboard: Mutex<Clipboard>,
     history: Mutex<Vec<String>>,
@@ -104,58 +103,61 @@ impl Clippy {
         }
     }
 
-    /// Listen for directives coming from the UI
-    /// for example clear_history() or the initial
-    /// history request when starting.
-    /// This way the UI can stop and start while always
-    /// having an up to date history as long as
-    /// the clipboard daemon is running.
+    /// Listen for directives coming from the UI for example clear_history() or the initial
+    /// history request when starting. This way the UI can stop and start while always
+    /// having an up to date history as long as the clipboard daemon is running.
+    /// We use a simple retry mechanism in case some requests fail.
     fn listen_for_ui(self: Arc<Self>) {
         let clippy = Arc::clone(&self);
         thread::spawn(move || -> Result<()> {
             let mut buffer = [0; 512];
 
-            let mut bind_attempts = 0;
-            let listener = loop {
-                match TcpListener::bind(format!("127.0.0.1:{}", UI_LISTENING_PORT)) {
-                    // Break the loop and return the listener = success
-                    Ok(listener) => break listener,
-                    Err(e) => {
-                        bind_attempts += 1;
-                        eprintln!(
-                            "Failed to bind UI listener: {}. Attempt {}/{}",
-                            e, bind_attempts, MAX_BIND_RETRIES
-                        );
+            let listener = TcpListener::bind(format!("127.0.0.1:{UI_LISTENING_PORT}"))
+                .context(format!(
+                    "UI listener could not bind to \"127.0.0.1:{UI_SENDING_PORT}\"."
+                ))
+                .unwrap();
 
-                        if bind_attempts >= MAX_BIND_RETRIES {
+            let mut get_stream_consecutive_failures = 0;
+            for stream in listener.incoming() {
+                let stream_success_result = (|| -> Result<()> {
+                    let mut stream =
+                        stream.context("Could not get stream from incoming UI connexion.")?;
+                    let size = stream
+                        .read(&mut buffer)
+                        .context("Could not read the incoming request from the UI.")?;
+
+                    let request = String::from_utf8_lossy(&buffer[..size]);
+
+                    if request.trim() == "GET_HISTORY" {
+                        clippy
+                            .send_history(stream.try_clone()?)
+                            .context("Could not send the history to UI, stream.write() failed.")?;
+                    } else if request.trim() == "RESET_HISTORY" {
+                        clippy
+                            .clear_history()
+                            .context("Could not clear history after UI request.")?;
+
+                        stream.write(b"OK")?;
+                    }
+                    Ok(())
+                })();
+
+                match stream_success_result {
+                    Ok(()) => {
+                        // Reset the failure counter on success.
+                        get_stream_consecutive_failures = 0;
+                    }
+                    Err(e) => {
+                        eprintln!("Error handling UI request: {}. Retrying...", e);
+                        get_stream_consecutive_failures += 1;
+                        if get_stream_consecutive_failures >= GET_LISTENING_STREAM_MAX_RETRIES {
                             panic!(
-                                "UI listener could not bind to \"127.0.0.1:{UI_SENDING_PORT}\" after {bind_attempts} retries: {e}."
+                                "Exceeded {GET_LISTENING_STREAM_MAX_RETRIES} consecutive failures. Exiting UI listener thread.",
                             );
                         }
                         thread::sleep(Duration::from_millis(500));
                     }
-                }
-            };
-            println!("Successfulky binded");
-            for stream in listener.incoming() {
-                let mut stream =
-                    stream.context("Could not get stream from incoming UI connexion.")?;
-                let size = stream
-                    .read(&mut buffer)
-                    .context("Could not read the incoming request from the UI.")?;
-
-                let request = String::from_utf8_lossy(&buffer[..size]);
-
-                if request.trim() == "GET_HISTORY" {
-                    clippy
-                        .send_history(stream.try_clone()?)
-                        .context("Could not send the history to UI, stream.write() failed.")?;
-                } else if request.trim() == "RESET_HISTORY" {
-                    clippy
-                        .clear_history()
-                        .context("Could not clear history after UI request.")?;
-
-                    stream.write(b"OK")?;
                 }
             }
             Ok(())
@@ -199,7 +201,7 @@ impl Clippy {
             // if any of these steps fail, we fall back to an empty Vec<String> and notify the user
             .unwrap_or_else(|load_error| {
                 eprintln!(
-                    "Could not load history: {load_error}\nFalling back to an empty history.",
+                    "Could not load history: {load_error}\nFalling back to an empty history.\n",
                 );
                 Vec::new()
             });
