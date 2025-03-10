@@ -9,7 +9,9 @@ use std::{thread, time::Duration};
 // Refactor UI
 // Order methods
 // Clean code / Properly handle errors
+// Retry mechanism for requests
 // Monitor RAM usage
+// Timeout connexion
 // Found a way to easily launch it (both binaries)
 // Reorganize / modularize files
 // Handle history file path depending on OS.
@@ -43,7 +45,6 @@ impl Clippy {
 
     /// Monitor clipboard changes and send a request to the UI on copy.
     fn monitor_clipboard_events(&self) -> Result<()> {
-        println!("Clipboard daemon listening for clipboard changes ...");
         let mut consecutive_clipboard_failures = 0;
 
         loop {
@@ -102,7 +103,6 @@ impl Clippy {
     /// having an up to date history as long as
     /// the clipboard daemon is running.
     fn listen_for_ui(self: Arc<Self>) {
-        println!("Clipboard daemon listening for UI TCP requests ...");
         let clippy = Arc::clone(&self);
         thread::spawn(move || -> Result<()> {
             let mut buffer = [0; 512];
@@ -130,6 +130,7 @@ impl Clippy {
 
                     stream.write(b"OK")?;
                 }
+
             }
             Ok(())
         });
@@ -207,9 +208,11 @@ fn main() -> Result<()> {
     let clippy = Arc::new(Clippy::new()?);
 
     // Spawn the UI listener thread. This works because listen_for_ui expects an Arc<Self>.
+    println!("Clipboard daemon listening for UI requests ...");
     Arc::clone(&clippy).listen_for_ui();
 
-    // Monitor clipboard events on the main thread.
+    // Main thread
+    println!("Clipboard daemon listening for clipboard changes ...");
     clippy.monitor_clipboard_events()?;
 
     Ok(())

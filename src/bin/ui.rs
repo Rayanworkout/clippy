@@ -1,5 +1,5 @@
 use ron::de::from_str;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -15,9 +15,12 @@ pub struct ClippyApp {
 impl ClippyApp {
     fn new() -> Self {
         let empty_cache = Vec::new();
-        Self {
+        let clippy = ClippyApp {
             history_cache: Arc::new(Mutex::new(empty_cache)),
-        }
+        };
+        clippy.get_initial_history();
+
+        clippy
     }
 
     fn listen_for_history_updates(&self, mut stream: TcpStream) {
@@ -28,6 +31,27 @@ impl ClippyApp {
         let request = String::from_utf8_lossy(&buffer);
         if let Ok(mut history) = self.history_cache.lock() {
             *history = from_str(&request).expect("Failed to parse RON");
+        }
+    }
+
+    fn get_initial_history(&self) {
+        let mut stream = TcpStream::connect("127.0.0.1:7878").expect("Could not bind");
+
+        let request = "GET_HISTORY\n";
+        stream
+            .write_all(request.as_bytes())
+            .expect("Failed to write to stream");
+
+        // Read the server's response into a string.
+        let mut response = String::new();
+        stream
+            .read_to_string(&mut response)
+            .expect("Failed to read from stream");
+
+
+        println!("Successfully got the initial history.");
+        if let Ok(mut history) = self.history_cache.lock() {
+            *history = from_str(&response).expect("Failed to parse RON");
         }
     }
 }
@@ -133,6 +157,7 @@ fn main() -> eframe::Result<()> {
     });
 
     println!("Running app ...");
+
     // Pass the ClippyApp instance directly to run_native.
     eframe::run_native(
         "Clippy",
