@@ -17,8 +17,20 @@ def send_request(request: str) -> str:
     return response.decode()
 
 
+def send_request_and_disconnect(request: str):
+    """Send a request string to the endpoint and then immediately disconnect."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((TCP_IP, TCP_PORT))
+    sock.sendall(request.encode())
+    # Immediately shutdown and close the connection to simulate a failure.
+    sock.shutdown(socket.SHUT_RDWR)
+    sock.close()
+    print("Disconnected immediately after sending request.")
+
 if __name__ == "__main__":
     # response = send_request("GET_HISTORY")
-    # print("Response:", response)
+    # response = send_request("RESET_HISTORY")
+    response = send_request_and_disconnect("GET_HISTORY\n")
+    
+    print(response)
 
-    response = send_request("RESET_HISTORY")

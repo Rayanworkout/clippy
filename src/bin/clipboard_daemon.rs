@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use arboard::Clipboard;
 use core::panic;
 use std::fs;
@@ -29,7 +29,7 @@ const CLIPBOARD_REFRESH_RATE_MS: u64 = 800;
 
 const UI_SENDING_PORT: u32 = 7878;
 const UI_LISTENING_PORT: u32 = 7879;
-const GET_LISTENING_STREAM_MAX_RETRIES: u32 = 5;
+const STREAM_MAX_RETRIES: u32 = 5;
 struct Clippy {
     clipboard: Mutex<Clipboard>,
     history: Mutex<Vec<String>>,
@@ -151,9 +151,9 @@ impl Clippy {
                     Err(e) => {
                         eprintln!("Error handling UI request: {}. Retrying...", e);
                         get_stream_consecutive_failures += 1;
-                        if get_stream_consecutive_failures >= GET_LISTENING_STREAM_MAX_RETRIES {
+                        if get_stream_consecutive_failures >= STREAM_MAX_RETRIES {
                             panic!(
-                                "Exceeded {GET_LISTENING_STREAM_MAX_RETRIES} consecutive failures. Exiting UI listener thread.",
+                                "Exceeded {STREAM_MAX_RETRIES} consecutive failures. Exiting UI listener thread.",
                             );
                         }
                         thread::sleep(Duration::from_millis(500));
@@ -221,15 +221,34 @@ impl Clippy {
     }
 
     fn send_history(&self, mut stream: TcpStream) -> Result<()> {
-        if let Ok(history) = self.history.lock() {
-            stream.write_all(format!("{:?}\n", history).as_bytes())?;
-            stream
-                .shutdown(Shutdown::Write)
-                .context("Could not close the TCP connexion when sending history.")?;
+        let history = self.history.lock()
+            .map_err(|e| anyhow!("Could not acquire history lock: {}", e))?;
+        
+        for attempt in 0..STREAM_MAX_RETRIES {
+            let send_result = (|| -> Result<()> {
+                stream.write_all(format!("{:?}\n", history).as_bytes())?;
+                stream.shutdown(Shutdown::Write)
+                    .context("Could not close the TCP connection when sending history.")?;
+                Ok(())
+            })();
+            
+            match send_result {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    eprintln!(
+                        "Could not send history to UI on attempt {}/{}: {}. Retrying...",
+                        attempt + 1,
+                        STREAM_MAX_RETRIES,
+                        e
+                    );
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                }
+            }
         }
-
-        Ok(())
+        
+        Err(anyhow::anyhow!("Could not send history to UI {} times in a row", STREAM_MAX_RETRIES))
     }
+    
 }
 
 fn main() -> Result<()> {
