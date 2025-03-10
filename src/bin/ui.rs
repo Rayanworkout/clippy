@@ -9,22 +9,28 @@ use arboard::Clipboard;
 use eframe::egui::{self, FontId, TextStyle};
 
 #[derive(Clone)]
-pub struct ClippyApp {
-    pub history_cache: Arc<Mutex<Vec<String>>>,
+struct ClippyApp {
+    history_cache: Arc<Mutex<Vec<String>>>,
+    max_entry_display_length: usize,
+    minimize_on_copy: bool,
+    minimize_on_clear: bool,
 }
-
-const MAX_ENTRY_DISPLAY_LENGTH: usize = 100;
-const MINIMIZE_ON_COPY: bool = true;
-const MINIMIZE_ON_RESET: bool = true;
 
 const DAEMON_LISTENING_PORT: u32 = 7878;
 const DAEMON_SENDING_PORT: u32 = 7879;
+
+const MAX_ENTRY_DISPLAY_LENGTH: usize = 100;
+const MINIMIZE_ON_COPY: bool = true;
+const MINIMIZE_ON_CLEAR: bool = true;
 
 impl ClippyApp {
     fn new() -> Self {
         let empty_cache = Vec::new();
         let clippy = ClippyApp {
             history_cache: Arc::new(Mutex::new(empty_cache)),
+            max_entry_display_length: MAX_ENTRY_DISPLAY_LENGTH,
+            minimize_on_copy: MINIMIZE_ON_COPY,
+            minimize_on_clear: MINIMIZE_ON_CLEAR,
         };
 
         let _ = clippy.fill_initial_history();
@@ -143,6 +149,17 @@ impl eframe::App for ClippyApp {
         ctx.set_style(style);
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            egui::menu::bar(ui, |ui| {
+                ui.menu_button("Preferences", |ui| {
+                    ui.checkbox(&mut self.minimize_on_copy, "Minimize on copy");
+                    ui.checkbox(&mut self.minimize_on_clear, "Minimize on clear");
+                    ui.add(
+                        egui::Slider::new(&mut self.max_entry_display_length, 10..=500)
+                            .text("max entry display length"),
+                    );
+                });
+            });
+
             egui::ScrollArea::vertical().show(ui, |ui| {
                 // Clear history
                 ui.add_space(10.0);
@@ -154,7 +171,7 @@ impl eframe::App for ClippyApp {
                     {
                         self.clear_history();
                         // Optionally minimize after clearing the history
-                        if MINIMIZE_ON_RESET {
+                        if self.minimize_on_clear {
                             ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
                         }
                     }
@@ -168,8 +185,8 @@ impl eframe::App for ClippyApp {
                             // We create a short version of the value but
                             // we keep the original to be copied
                             // only the first X characters
-                            let short_value = if value.len() > MAX_ENTRY_DISPLAY_LENGTH {
-                                format!("{}...", &value[..MAX_ENTRY_DISPLAY_LENGTH])
+                            let short_value = if value.len() > self.max_entry_display_length {
+                                format!("{}...", &value[..self.max_entry_display_length])
                             } else {
                                 value.to_string()
                             };
@@ -184,7 +201,7 @@ impl eframe::App for ClippyApp {
                                     }
                                 }
 
-                                if MINIMIZE_ON_COPY {
+                                if self.minimize_on_copy {
                                     // Minimize after copying
                                     ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
                                 }
@@ -207,7 +224,7 @@ fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_always_on_top()
-            .with_inner_size([250.0, 340.0])
+            .with_inner_size([350.0, 450.0])
             .with_max_inner_size([350.0, 450.0])
             .with_maximize_button(false)
             .with_min_inner_size([200.0, 300.0])

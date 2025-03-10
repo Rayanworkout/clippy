@@ -7,14 +7,16 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
-// Refactor UI
-// Implement clear_history when clicking on trash
+// https://egui.info/examples/
+
+// TODO
 // Search through history
-// Handle history file path depending on OS.
 // Reorganize / modularize files ?
+// Add syntax highlight support ?
 // Logging (requesting history, sending back history ...)
-// Find a way to easily launch it (both binaries)
 // Implement config file
+// Find a way to easily launch it (both binaries)
+// Handle history file path depending on OS.
 // Monitor RAM usage
 // Update README
 
@@ -77,8 +79,8 @@ impl Clippy {
                             // Send the TCP request to the UI
                             match TcpStream::connect(format!("127.0.0.1:{UI_SENDING_PORT}")) {
                                 Ok(stream) => self.send_history(stream)?,
-                                Err(e) => {
-                                    eprintln!("UI not available ({e}). Skipping history update.")
+                                Err(_) => {
+                                    // UI not available
                                 }
                             }
 
