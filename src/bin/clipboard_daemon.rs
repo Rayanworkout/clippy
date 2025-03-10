@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use arboard::Clipboard;
+use core::panic;
 use std::fs;
 use std::io::{BufReader, Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
@@ -28,6 +29,7 @@ const CLIPBOARD_REFRESH_RATE_MS: u64 = 800;
 
 const UI_SENDING_PORT: u32 = 7878;
 const UI_LISTENING_PORT: u32 = 7879;
+const MAX_BIND_RETRIES: u32 = 5;
 
 struct Clippy {
     clipboard: Mutex<Clipboard>,
@@ -69,7 +71,7 @@ impl Clippy {
                                     history.pop();
                                 }
 
-                                // Explicitely drop the lock otherwise save_history() won't be
+                                // Explicitly drop the lock otherwise save_history() won't be
                                 // able to access the variable
                                 drop(history);
 
@@ -112,10 +114,29 @@ impl Clippy {
         let clippy = Arc::clone(&self);
         thread::spawn(move || -> Result<()> {
             let mut buffer = [0; 512];
-            let listener = TcpListener::bind(format!("127.0.0.1:{UI_LISTENING_PORT}")).context(
-                format!("UI listener could not bind to \"127.0.0.1:{UI_SENDING_PORT}\"."),
-            )?;
 
+            let mut bind_attempts = 0;
+            let listener = loop {
+                match TcpListener::bind(format!("127.0.0.1:{}", UI_LISTENING_PORT)) {
+                    // Break the loop and return the listener = success
+                    Ok(listener) => break listener,
+                    Err(e) => {
+                        bind_attempts += 1;
+                        eprintln!(
+                            "Failed to bind UI listener: {}. Attempt {}/{}",
+                            e, bind_attempts, MAX_BIND_RETRIES
+                        );
+
+                        if bind_attempts >= MAX_BIND_RETRIES {
+                            panic!(
+                                "UI listener could not bind to \"127.0.0.1:{UI_SENDING_PORT}\" after {bind_attempts} retries: {e}."
+                            );
+                        }
+                        thread::sleep(Duration::from_millis(500));
+                    }
+                }
+            };
+            println!("Successfulky binded");
             for stream in listener.incoming() {
                 let mut stream =
                     stream.context("Could not get stream from incoming UI connexion.")?;
