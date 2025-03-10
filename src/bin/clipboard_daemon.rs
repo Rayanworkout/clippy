@@ -59,22 +59,24 @@ impl Clippy {
                                 // Insert new value at first index
                                 history.insert(0, content);
 
+                                let history_len = history.len();
                                 // Keep only the wanted number of entries
-                                if history.len() > MAX_HISTORY_LENGTH {
+                                if history_len > MAX_HISTORY_LENGTH {
                                     history.pop();
                                 }
 
+                                // Explicitely drop the lock otherwise save_history() won't be
+                                // able to access the variable
+                                drop(history);
+
                                 // Send the TCP request to the UI
                                 // But only if this is not the first startup
-                                if history.len() > 1 {
+                                if history_len > 1 {
                                     let stream = TcpStream::connect(format!("127.0.0.1:{TCP_PORT}")).context(
                                         format!("Clipboard daemon could not bind to \"127.0.0.1:{TCP_PORT}\"."),
                                     )?;
                                     self.send_history(stream)?;
                                 }
-                                // Explicitely drop the lock otherwise save_history() won't be
-                                // able to access the variable
-                                drop(history);
 
                                 // Save new history to file
                                 self.save_history()?;
@@ -121,7 +123,7 @@ impl Clippy {
 
                 if request.trim() == "GET_HISTORY" {
                     clippy
-                        .send_history(stream)
+                        .send_history(stream.try_clone()?)
                         .context("Could not send the history to UI, stream.write() failed.")?;
                 } else if request.trim() == "RESET_HISTORY" {
                     clippy
@@ -130,7 +132,6 @@ impl Clippy {
 
                     stream.write(b"OK")?;
                 }
-
             }
             Ok(())
         });
