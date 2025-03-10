@@ -13,6 +13,10 @@ pub struct ClippyApp {
     pub history_cache: Arc<Mutex<Vec<String>>>,
 }
 
+const MAX_ENTRY_DISPLAY_LENGTH: usize = 100;
+const MINIMIZE_ON_COPY: bool = true;
+const MINIMIZE_ON_RESET: bool = true;
+
 const DAEMON_LISTENING_PORT: u32 = 7878;
 const DAEMON_SENDING_PORT: u32 = 7879;
 
@@ -122,10 +126,8 @@ impl ClippyApp {
             Ok(response)
         })();
 
-        if let Ok(daemon_response) = request_result {
-            println!("{}", daemon_response);
-        } else {
-            eprintln!("Could not clear history\n",);
+        if let Err(e) = request_result {
+            eprintln!("Could not clear history: {e}\n");
         }
     }
 }
@@ -151,8 +153,10 @@ impl eframe::App for ClippyApp {
                         .clicked()
                     {
                         self.clear_history();
-                        // Minimize after clearing the history
-                        // ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+                        // Optionally minimize after clearing the history
+                        if MINIMIZE_ON_RESET {
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+                        }
                     }
                 });
                 ui.add_space(10.0);
@@ -163,24 +167,27 @@ impl eframe::App for ClippyApp {
                         ui.vertical_centered_justified(|ui| {
                             // We create a short version of the value but
                             // we keep the original to be copied
-                            // only the first 60 characters
-                            const MAX_ENTRY_DISPLAY_LENGTH: usize = 60;
+                            // only the first X characters
                             let short_value = if value.len() > MAX_ENTRY_DISPLAY_LENGTH {
                                 format!("{}...", &value[..MAX_ENTRY_DISPLAY_LENGTH])
                             } else {
-                                value.clone()
+                                value.to_string()
                             };
 
-                            if ui
-                                .button(short_value)
-                                // We use the "Copy" cursor on hover
-                                .on_hover_cursor(egui::CursorIcon::Copy)
-                                .clicked()
-                            {
-                                let mut clipboard = Clipboard::new().unwrap();
-                                let _ = clipboard.set_text(value.clone());
-                                // Minimize after copying
-                                ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+                            if ui.button(short_value).clicked() {
+                                if let Ok(mut clipboard) = Clipboard::new() {
+                                    match clipboard.set_text(value) {
+                                        Ok(()) => {}
+                                        Err(e) => {
+                                            eprintln!("Could not set clipboard value on click: {e}")
+                                        }
+                                    }
+                                }
+
+                                if MINIMIZE_ON_COPY {
+                                    // Minimize after copying
+                                    ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+                                }
                             }
                         });
                         ui.add_space(5.0);
