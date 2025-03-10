@@ -12,6 +12,9 @@ pub struct ClippyApp {
     pub history_cache: Arc<Mutex<Vec<String>>>,
 }
 
+const DAEMON_LISTENING_PORT: u32 = 7878;
+const DAEMON_SENDING_PORT: u32 = 7879;
+
 impl ClippyApp {
     fn new() -> Self {
         let empty_cache = Vec::new();
@@ -35,7 +38,8 @@ impl ClippyApp {
     }
 
     fn get_initial_history(&self) {
-        let mut stream = TcpStream::connect("127.0.0.1:7878").expect("Could not bind");
+        let mut stream =
+            TcpStream::connect(format!("127.0.0.1:{DAEMON_SENDING_PORT}")).expect("Could not bind");
 
         let request = "GET_HISTORY\n";
         stream
@@ -48,11 +52,10 @@ impl ClippyApp {
             .read_to_string(&mut response)
             .expect("Failed to read from stream");
 
-
-        println!("Successfully got the initial history.");
         if let Ok(mut history) = self.history_cache.lock() {
             *history = from_str(&response).expect("Failed to parse RON");
         }
+        println!("Successfully loaded the initial history.");
     }
 }
 
@@ -76,9 +79,9 @@ impl eframe::App for ClippyApp {
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
                         .clicked()
                     {
-                        // self.clippy_instance.clear_history();
+                        // self.clear_history();
                         // Minimize after clearing the history
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+                        // ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
                     }
                 });
                 ui.add_space(10.0);
@@ -141,8 +144,9 @@ fn main() -> eframe::Result<()> {
 
     // Spawn a background thread that periodically updates the shared history.
     thread::spawn(move || {
-        let listener = TcpListener::bind("127.0.0.1:7878").expect("Could not bind");
-        println!("UI server listening on port 7878 ...");
+        let listener = TcpListener::bind(format!("127.0.0.1:{DAEMON_LISTENING_PORT}"))
+            .expect("Could not bind");
+        println!("UI server listening on port {DAEMON_LISTENING_PORT} ...");
 
         for stream in listener.incoming() {
             match stream {

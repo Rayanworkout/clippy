@@ -6,12 +6,14 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
+// Implement clear_history when clicking on trash
 // Refactor UI
 // Order methods
 // Clean code / Properly handle errors
 // Retry mechanism for requests
 // Monitor RAM usage
 // Timeout connexion
+// Logging (requesting history, sending back history ...)
 // Found a way to easily launch it (both binaries)
 // Reorganize / modularize files
 // Handle history file path depending on OS.
@@ -23,7 +25,9 @@ use std::{thread, time::Duration};
 const HISTORY_FILE_PATH: &str = ".clipboard_history.ron";
 const MAX_HISTORY_LENGTH: usize = 100;
 const CLIPBOARD_REFRESH_RATE_MS: u64 = 800;
-const TCP_PORT: u32 = 7878;
+
+const UI_SENDING_PORT: u32 = 7878;
+const UI_LISTENING_PORT: u32 = 7879;
 
 struct Clippy {
     clipboard: Mutex<Clipboard>,
@@ -71,12 +75,12 @@ impl Clippy {
 
                                 // Send the TCP request to the UI
                                 // But only if this is not the first startup
-                                if history_len > 1 {
-                                    let stream = TcpStream::connect(format!("127.0.0.1:{TCP_PORT}")).context(
-                                        format!("Clipboard daemon could not bind to \"127.0.0.1:{TCP_PORT}\"."),
-                                    )?;
-                                    self.send_history(stream)?;
-                                }
+                                // if history_len > 1 {
+                                //     let stream = TcpStream::connect(format!("127.0.0.1:{UI_SENDING_PORT}")).context(
+                                //         format!("Clipboard daemon could not bind to \"127.0.0.1:{UI_SENDING_PORT}\"."),
+                                //     )?;
+                                //     self.send_history(stream)?;
+                                // }
 
                                 // Save new history to file
                                 self.save_history()?;
@@ -108,9 +112,9 @@ impl Clippy {
         let clippy = Arc::clone(&self);
         thread::spawn(move || -> Result<()> {
             let mut buffer = [0; 512];
-            let listener = TcpListener::bind(format!("127.0.0.1:{TCP_PORT}")).context(format!(
-                "UI listener could not bind to \"127.0.0.1:{TCP_PORT}\"."
-            ))?;
+            let listener = TcpListener::bind(format!("127.0.0.1:{UI_LISTENING_PORT}")).context(
+                format!("UI listener could not bind to \"127.0.0.1:{UI_SENDING_PORT}\"."),
+            )?;
 
             for stream in listener.incoming() {
                 let mut stream =
@@ -209,11 +213,11 @@ fn main() -> Result<()> {
     let clippy = Arc::new(Clippy::new()?);
 
     // Spawn the UI listener thread. This works because listen_for_ui expects an Arc<Self>.
-    println!("Clipboard daemon listening for UI requests ...");
+    println!("Clippy listening for UI requests on {UI_LISTENING_PORT} ...");
     Arc::clone(&clippy).listen_for_ui();
 
     // Main thread
-    println!("Clipboard daemon listening for clipboard changes ...");
+    println!("Clippy listening for clipboard changes and ready to send to UI on port {UI_SENDING_PORT} ...");
     clippy.monitor_clipboard_events()?;
 
     Ok(())
