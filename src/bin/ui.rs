@@ -28,17 +28,42 @@ impl ClippyApp {
         clippy
     }
 
-    fn listen_for_history_updates(&self, mut stream: TcpStream) {
-        let mut buffer = Vec::new();
-        stream
-            .read_to_end(&mut buffer)
-            .expect("Failed to read from stream");
-        let request = String::from_utf8_lossy(&buffer);
-        if let Ok(mut history) = self.history_cache.lock() {
-            *history = from_str(&request).expect("Failed to parse RON");
-        }
+    fn listen_for_history_updates(self: Arc<Self>) {
+        let clippy_app = Arc::clone(&self);
+        thread::spawn(move || -> Result<()> {
+            let listener = TcpListener::bind(format!("127.0.0.1:{DAEMON_LISTENING_PORT}"))
+                .expect("Could not bind");
+            println!("UI server listening on port {DAEMON_LISTENING_PORT} ...");
+
+            for stream in listener.incoming() {
+                match stream {
+                    Ok(mut stream) => {
+                        let mut buffer = Vec::new();
+
+                        stream
+                            .read_to_end(&mut buffer)
+                            .expect("Failed to read from stream");
+                        let request = String::from_utf8_lossy(&buffer);
+
+                        let mut history = clippy_app
+                            .history_cache
+                            .lock()
+                            .map_err(|e| anyhow!("Could not acquire history lock: {}", e))?;
+
+                        *history =
+                            from_str(&request).context("Failed to parse history with RON")?;
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to accept connection: {}", e);
+                    }
+                }
+            }
+            Ok(())
+        });
     }
 
+    /// Fetch the initial history from the daemon with a
+    /// TCP request. Uses an empty history if it fails.
     fn fill_initial_history(&self) -> Result<()> {
         let request_result = (|| -> Result<String> {
             let mut stream = TcpStream::connect(format!("127.0.0.1:{DAEMON_SENDING_PORT}"))
@@ -46,17 +71,15 @@ impl ClippyApp {
                 "Initial history request could not bind to \"127.0.0.1:{DAEMON_SENDING_PORT}\"."
             ))?;
 
-            let request = "GET_HISTORY\n";
-
             stream
-                .write_all(request.as_bytes())
-                .expect("Failed to write to stream");
+                .write_all("GET_HISTORY\n".as_bytes())
+                .context("Failed to write to stream when trying to get initial history.")?;
 
             // Read the server's response into a string.
             let mut response = String::new();
             stream
                 .read_to_string(&mut response)
-                .context("Failed to read from stream")?;
+                .context("Failed to read from stream when trying to get initial history.")?;
 
             Ok(response)
         })();
@@ -78,6 +101,32 @@ impl ClippyApp {
         }
 
         Ok(())
+    }
+
+    fn clear_history(&mut self) {
+        let request_result = (|| -> Result<String> {
+            let mut stream = TcpStream::connect(format!("127.0.0.1:{DAEMON_SENDING_PORT}"))
+                .context(format!(
+                    "Clear history request could not bind to \"127.0.0.1:{DAEMON_SENDING_PORT}\"."
+                ))?;
+
+            stream
+                .write("RESET_HISTORY\n".as_bytes())
+                .expect("Failed to write to stream when trying to clear history.");
+
+            // Read the server's response into a string.
+            let mut response = String::new();
+            stream
+                .read_to_string(&mut response)
+                .context("Failed to read from stream when trying to clear history.")?;
+            Ok(response)
+        })();
+
+        if let Ok(daemon_response) = request_result {
+            println!("{}", daemon_response);
+        } else {
+            eprintln!("Could not clear history\n",);
+        }
     }
 }
 
@@ -101,7 +150,7 @@ impl eframe::App for ClippyApp {
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
                         .clicked()
                     {
-                        // self.clear_history();
+                        self.clear_history();
                         // Minimize after clearing the history
                         // ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
                     }
@@ -161,26 +210,10 @@ fn main() -> eframe::Result<()> {
     };
 
     // Create a ClippyApp instance normally (not wrapped in an Arc).
-    let clippy_ui = ClippyApp::new();
-    let clippy_for_thread = clippy_ui.clone();
+    let clippy_ui = Arc::new(ClippyApp::new());
 
     // Spawn a background thread that periodically updates the shared history.
-    thread::spawn(move || {
-        let listener = TcpListener::bind(format!("127.0.0.1:{DAEMON_LISTENING_PORT}"))
-            .expect("Could not bind");
-        println!("UI server listening on port {DAEMON_LISTENING_PORT} ...");
-
-        for stream in listener.incoming() {
-            match stream {
-                Ok(stream) => {
-                    let _history = clippy_for_thread.listen_for_history_updates(stream);
-                }
-                Err(e) => {
-                    eprintln!("Failed to accept connection: {}", e);
-                }
-            }
-        }
-    });
+    Arc::clone(&clippy_ui).listen_for_history_updates();
 
     println!("Running app ...");
 
@@ -188,6 +221,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Clippy",
         options,
-        Box::new(move |_cc| Ok(Box::new(clippy_ui))),
+        // We clone the inner value of Arc<ClippyApp> because Arc<ClippyApp> does not implement eframe::App
+        Box::new(move |_cc| Ok(Box::new((*clippy_ui).clone()))),
     )
 }

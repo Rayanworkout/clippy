@@ -75,10 +75,12 @@ impl Clippy {
                             drop(history);
 
                             // Send the TCP request to the UI
-                            let stream = TcpStream::connect(format!("127.0.0.1:{UI_SENDING_PORT}")).context(
-                                    format!("Clipboard daemon could not bind to \"127.0.0.1:{UI_SENDING_PORT}\"."),
-                                )?;
-                            self.send_history(stream)?;
+                            match TcpStream::connect(format!("127.0.0.1:{UI_SENDING_PORT}")) {
+                                Ok(stream) => self.send_history(stream)?,
+                                Err(e) => {
+                                    eprintln!("UI not available ({e}). Skipping history update.")
+                                }
+                            }
 
                             // Save new history to file
                             self.save_history()?;
@@ -133,6 +135,8 @@ impl Clippy {
                             .context("Could not clear history after UI request.")?;
 
                         stream.write(b"OK")?;
+                    } else {
+                        stream.write(b"BAD_REQUEST")?;
                     }
                     Ok(())
                 })();
