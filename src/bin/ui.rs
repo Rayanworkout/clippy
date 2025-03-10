@@ -14,6 +14,7 @@ struct ClippyApp {
     max_entry_display_length: usize,
     minimize_on_copy: bool,
     minimize_on_clear: bool,
+    search_query: String,
 }
 
 const DAEMON_LISTENING_PORT: u32 = 7878;
@@ -31,6 +32,7 @@ impl ClippyApp {
             max_entry_display_length: MAX_ENTRY_DISPLAY_LENGTH,
             minimize_on_copy: MINIMIZE_ON_COPY,
             minimize_on_clear: MINIMIZE_ON_CLEAR,
+            search_query: String::new(),
         };
 
         let _ = clippy.fill_initial_history();
@@ -161,9 +163,13 @@ impl eframe::App for ClippyApp {
             });
 
             egui::ScrollArea::vertical().show(ui, |ui| {
-                // Clear history
                 ui.add_space(10.0);
                 ui.vertical_centered(|ui| {
+                    // Search input
+                    ui.text_edit_singleline(&mut self.search_query);
+
+                    ui.add_space(10.0);
+                    // Clear history
                     if ui
                         .button("🗑")
                         .on_hover_cursor(egui::CursorIcon::PointingHand)
@@ -181,35 +187,44 @@ impl eframe::App for ClippyApp {
                 // Iterate through every value of the history
                 if let Ok(history) = self.history_cache.lock() {
                     for value in history.iter() {
-                        ui.vertical_centered_justified(|ui| {
-                            // We create a short version of the value but
-                            // we keep the original to be copied
-                            // only the first X characters
-                            let short_value = if value.len() > self.max_entry_display_length {
-                                format!("{}...", &value[..self.max_entry_display_length])
-                            } else {
-                                value.to_string()
-                            };
+                        // Filtering based on search query
+                        if self.search_query.trim().is_empty()
+                            || value.trim().contains(&self.search_query)
+                        {
+                            ui.vertical_centered_justified(|ui| {
+                                // We create a short version of the value but
+                                // we keep the original to be copied
+                                // only the first X characters
+                                let short_value = if value.len() > self.max_entry_display_length {
+                                    format!("{}...", &value[..self.max_entry_display_length])
+                                } else {
+                                    value.to_string()
+                                };
 
-                            if ui.button(short_value).clicked() {
-                                if let Ok(mut clipboard) = Clipboard::new() {
-                                    match clipboard.set_text(value) {
-                                        Ok(()) => {}
-                                        Err(e) => {
-                                            eprintln!("Could not set clipboard value on click: {e}")
+                                if ui.button(short_value).clicked() {
+                                    if let Ok(mut clipboard) = Clipboard::new() {
+                                        match clipboard.set_text(value) {
+                                            Ok(()) => {}
+                                            Err(e) => {
+                                                eprintln!(
+                                                    "Could not set clipboard value on click: {e}"
+                                                )
+                                            }
                                         }
                                     }
-                                }
 
-                                if self.minimize_on_copy {
-                                    // Minimize after copying
-                                    ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+                                    if self.minimize_on_copy {
+                                        // Minimize after copying
+                                        ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(
+                                            true,
+                                        ));
+                                    }
                                 }
-                            }
-                        });
-                        ui.add_space(5.0);
-                        ui.separator();
-                        ui.add_space(5.0);
+                            });
+                            ui.add_space(5.0);
+                            ui.separator();
+                            ui.add_space(5.0);
+                        }
                     }
                 }
             });
