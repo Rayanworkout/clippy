@@ -13,22 +13,34 @@ impl eframe::App for ClippyApp {
         );
         ctx.set_style(style);
 
+        if self.config.dark_mode {
+            ctx.set_visuals(egui::Visuals::dark());
+        } else {
+            ctx.set_visuals(egui::Visuals::light());
+        }
+
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.add_space(5.);
             egui::menu::bar(ui, |ui| {
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
                     ui.menu_button("Preferences", |ui| {
-                        ui.checkbox(&mut self.minimize_on_copy, "Minimize on copy");
-                        ui.checkbox(&mut self.minimize_on_clear, "Minimize on clear");
+                        ui.checkbox(&mut self.config.minimize_on_copy, "Minimize on copy");
+                        ui.checkbox(&mut self.config.minimize_on_clear, "Minimize on clear");
                         ui.add(
-                            egui::Slider::new(&mut self.max_entry_display_length, 10..=500)
+                            egui::Slider::new(&mut self.config.max_entry_display_length, 10..=500)
                                 .text("max entry display length"),
                         );
                     });
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
-                        let _close_button = ui.add(egui::Button::new("❌"));
-                        let _theme_button = ui.add(egui::Button::new("🌙"));
+                        let logo = if self.config.dark_mode {
+                            "🌞"
+                        } else {
+                            "🌙"
+                        };
+                        if ui.button(logo).clicked() {
+                            self.config.dark_mode = !self.config.dark_mode;
+                        }
                     });
 
                     ui.add_space(10.);
@@ -52,7 +64,7 @@ impl eframe::App for ClippyApp {
                     {
                         let _ = self.clear_history();
                         // Optionally minimize after clearing the history
-                        if self.minimize_on_clear {
+                        if self.config.minimize_on_clear {
                             ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
                         }
                     }
@@ -70,8 +82,10 @@ impl eframe::App for ClippyApp {
                                 // We create a short version of the value but
                                 // we keep the original to be copied
                                 // only the first X characters
-                                let short_value = if value.len() > self.max_entry_display_length {
-                                    format!("{}...", &value[..self.max_entry_display_length])
+                                let short_value = if value.len()
+                                    > self.config.max_entry_display_length
+                                {
+                                    format!("{}...", &value[..self.config.max_entry_display_length])
                                 } else {
                                     value.to_string()
                                 };
@@ -88,7 +102,7 @@ impl eframe::App for ClippyApp {
                                         }
                                     }
 
-                                    if self.minimize_on_copy {
+                                    if self.config.minimize_on_copy {
                                         // Minimize after copying
                                         ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(
                                             true,

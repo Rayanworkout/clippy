@@ -1,4 +1,5 @@
 mod clippy_app;
+mod config;
 mod ui;
 
 use std::sync::Arc;
@@ -28,8 +29,6 @@ fn main() -> eframe::Result<()> {
 
     // Spawn a background thread that periodically updates the shared history.
     Arc::clone(&clippy_ui).listen_for_history_updates();
-
-    println!("Running app ...");
 
     // Pass the ClippyApp instance directly to run_native.
     eframe::run_native(

@@ -1,3 +1,4 @@
+use crate::config::AppConfig;
 use crate::DAEMON_LISTENING_PORT;
 use crate::DAEMON_SENDING_PORT;
 use anyhow::{anyhow, Context, Result};
@@ -10,25 +11,19 @@ use std::thread;
 #[derive(Clone)]
 pub struct ClippyApp {
     pub history_cache: Arc<Mutex<Vec<String>>>,
-    pub max_entry_display_length: usize,
-    pub minimize_on_copy: bool,
-    pub minimize_on_clear: bool,
     pub search_query: String,
+    pub config: AppConfig,
 }
 
-const MAX_ENTRY_DISPLAY_LENGTH: usize = 100;
-const MINIMIZE_ON_COPY: bool = true;
-const MINIMIZE_ON_CLEAR: bool = true;
+
 
 impl ClippyApp {
     pub fn new() -> Self {
         let empty_cache = Vec::new();
         let clippy = ClippyApp {
             history_cache: Arc::new(Mutex::new(empty_cache)),
-            max_entry_display_length: MAX_ENTRY_DISPLAY_LENGTH,
-            minimize_on_copy: MINIMIZE_ON_COPY,
-            minimize_on_clear: MINIMIZE_ON_CLEAR,
             search_query: String::new(),
+            config: AppConfig::new()
         };
 
         let _ = clippy.fill_initial_history();
