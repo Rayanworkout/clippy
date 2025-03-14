@@ -1,30 +1,42 @@
 use crate::clippy_app::ClippyApp;
 
 use arboard::Clipboard;
-use eframe::egui::{self, FontId, TextStyle};
+use eframe::egui;
 
 impl eframe::App for ClippyApp {
     // Handles UI updates.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let mut style = (*ctx.style()).clone();
         style.text_styles.insert(
-            TextStyle::Button,
-            FontId::new(18.0, egui::FontFamily::Proportional),
+            egui::TextStyle::Button,
+            egui::FontId::new(18.0, egui::FontFamily::Proportional),
         );
         ctx.set_style(style);
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+            ui.add_space(5.);
             egui::menu::bar(ui, |ui| {
-                ui.menu_button("Preferences", |ui| {
-                    ui.checkbox(&mut self.minimize_on_copy, "Minimize on copy");
-                    ui.checkbox(&mut self.minimize_on_clear, "Minimize on clear");
-                    ui.add(
-                        egui::Slider::new(&mut self.max_entry_display_length, 10..=500)
-                            .text("max entry display length"),
-                    );
-                });
-            });
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
+                    ui.menu_button("Preferences", |ui| {
+                        ui.checkbox(&mut self.minimize_on_copy, "Minimize on copy");
+                        ui.checkbox(&mut self.minimize_on_clear, "Minimize on clear");
+                        ui.add(
+                            egui::Slider::new(&mut self.max_entry_display_length, 10..=500)
+                                .text("max entry display length"),
+                        );
+                    });
 
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
+                        let _close_button = ui.add(egui::Button::new("❌"));
+                        let _theme_button = ui.add(egui::Button::new("🌙"));
+                    });
+
+                    ui.add_space(10.);
+                })
+            });
+        });
+        egui::CentralPanel::default().show(ctx, |ui| {
+            // Main content
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.add_space(10.0);
                 ui.vertical_centered(|ui| {
@@ -91,6 +103,22 @@ impl eframe::App for ClippyApp {
                     }
                 }
             });
+        });
+
+        egui::TopBottomPanel::bottom("footer").show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.add_space(10.);
+                ui.add(egui::Hyperlink::from_label_and_url(
+                    "Made with egui",
+                    "https://github.com/emilk/egui",
+                ));
+                ui.add_space(10.);
+                ui.add(egui::Hyperlink::from_label_and_url(
+                    "Source Code",
+                    "https://github.com/Rayanworkout/clippy",
+                ))
+            });
+            ui.add_space(10.);
         });
 
         // Ensure UI updates regularly

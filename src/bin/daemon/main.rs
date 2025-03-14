@@ -8,6 +8,12 @@ use clipboard_daemon::Clippy;
 const UI_SENDING_PORT: u32 = 7878;
 const UI_LISTENING_PORT: u32 = 7879;
 
+// Logging (requesting history, sending back history ...)
+// Implement config file
+// Find a way to easily launch it (.exe, .deb)
+// Monitor RAM usage
+// Update README
+
 fn main() -> Result<()> {
     let clippy = Arc::new(Clippy::new()?);
 

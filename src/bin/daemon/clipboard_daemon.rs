@@ -10,13 +10,6 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::{thread, time::Duration};
 
-// Logging (requesting history, sending back history ...)
-// Implement config file
-// Find a way to easily launch it (both binaries)
-// Handle history file path depending on OS.
-// Monitor RAM usage
-// Update README
-
 const HISTORY_FILE_PATH: &str = ".clipboard_history.ron";
 const MAX_HISTORY_LENGTH: usize = 100;
 const CLIPBOARD_REFRESH_RATE_MS: u64 = 800;
