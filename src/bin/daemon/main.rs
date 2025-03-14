@@ -8,7 +8,6 @@ use clipboard_daemon::Clippy;
 const UI_SENDING_PORT: u32 = 7878;
 const UI_LISTENING_PORT: u32 = 7879;
 
-// Refactor config update to prevent code repetition
 // Find a way to easily launch it (.exe, .deb)
 // Monitor RAM usage
 // Update README

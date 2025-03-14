@@ -32,35 +32,22 @@ impl ClippyApp {
         clippy
     }
 
-    pub fn toggle_config_field(&mut self, field_name: &str) -> bool {
-        let updated_value = match field_name {
-            "minimize_on_copy" => {
-                self.config.minimize_on_copy = !self.config.minimize_on_copy;
-                self.config.minimize_on_copy
-            }
-            "minimize_on_clear" => !self.config.minimize_on_clear,
-            "dark_mode" => !self.config.dark_mode,
+    pub fn toggle_config_field(&mut self, field_name: &str) {
+        match field_name {
+            "minimize_on_copy" => self.config.minimize_on_copy = self.config.minimize_on_copy,
+            "minimize_on_clear" => self.config.minimize_on_clear = self.config.minimize_on_clear,
+            "dark_mode" => self.config.dark_mode = !self.config.dark_mode,
             _ => {
                 tracing::error!("An invalid value was passed to ClippyApp.toggle_config_field()");
                 panic!("An invalid value was passed to ClippyApp.toggle_config_field()");
             }
         };
 
-        // Update the configuration with the new value
-        let config = ClippyConfig {
-            minimize_on_copy: self.config.minimize_on_copy,
-            dark_mode: self.config.dark_mode,
-            max_entry_display_length: self.config.max_entry_display_length,
-            minimize_on_clear: self.config.minimize_on_clear,
-        };
-
         // Save the updated configuration
-        let _ = confy::store("clippy", None, config);
+        let _ = confy::store("clippy", None, &self.config);
 
         // Log the change
-        tracing::info!("{} set to {}.", field_name, updated_value);
-
-        updated_value
+        tracing::info!("{field_name} changed in config.");
     }
 
     pub fn listen_for_history_updates(self: Arc<Self>) {

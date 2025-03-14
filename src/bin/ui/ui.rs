@@ -7,6 +7,7 @@ use eframe::egui;
 impl eframe::App for ClippyApp {
     // Handles UI updates.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // TODO
         let mut style = (*ctx.style()).clone();
         style.text_styles.insert(
             egui::TextStyle::Button,
@@ -22,6 +23,8 @@ impl eframe::App for ClippyApp {
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.add_space(5.);
+
+            // PREFERENCES
             egui::menu::bar(ui, |ui| {
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
                     ui.menu_button("Preferences", |ui| {
@@ -69,12 +72,12 @@ impl eframe::App for ClippyApp {
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
                         let logo = if self.config.dark_mode {
-                            "🌞"
+                            "🔆"
                         } else {
                             "🌙"
                         };
                         if ui.button(logo).clicked() {
-                           self.config.dark_mode = self.toggle_config_field("dark_mode");
+                           self.toggle_config_field("dark_mode");
                         }
                     });
 
