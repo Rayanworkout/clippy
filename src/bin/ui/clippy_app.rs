@@ -2,6 +2,8 @@ use crate::config::ClippyConfig;
 use crate::DAEMON_LISTENING_PORT;
 use crate::DAEMON_SENDING_PORT;
 use anyhow::{anyhow, Context, Result};
+use arboard::Clipboard;
+use eframe::egui;
 use ron::de::from_str;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -54,6 +56,35 @@ impl ClippyApp {
 
         // Log the change
         tracing::info!("{field_name} changed in config.");
+    }
+
+    pub fn display_history_entry(&self, ui: &mut egui::Ui, ctx: &egui::Context, value: &str) {
+        ui.vertical_centered_justified(|ui| {
+            // We create a short version of the value but
+            // we keep the original to be copied
+            // only the first X characters
+            let short_value = if value.len() > self.config.max_entry_display_length {
+                format!("{}...", &value[..self.config.max_entry_display_length])
+            } else {
+                value.to_string()
+            };
+
+            if ui.button(short_value).clicked() {
+                if let Ok(mut clipboard) = Clipboard::new() {
+                    match clipboard.set_text(value) {
+                        Ok(()) => {}
+                        Err(e) => {
+                            tracing::error!("Could not set clipboard value on click: {e}");
+                        }
+                    }
+                }
+
+                if self.config.minimize_on_copy {
+                    // Minimize after copying
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+                }
+            }
+        });
     }
 
     pub fn listen_for_history_updates(self: Arc<Self>) {

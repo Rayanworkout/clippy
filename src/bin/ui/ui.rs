@@ -1,6 +1,5 @@
 use crate::clippy_app::ClippyApp;
 
-use arboard::Clipboard;
 use eframe::egui;
 
 impl eframe::App for ClippyApp {
@@ -95,7 +94,7 @@ impl eframe::App for ClippyApp {
                         if self.config.minimize_on_clear {
                             ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
                         }
-                        tracing::info!("History cleared");
+                        tracing::info!("History cleared.");
                     }
                 });
                 ui.add_space(10.0);
@@ -107,38 +106,8 @@ impl eframe::App for ClippyApp {
                         if self.search_query.trim().is_empty()
                             || value.trim().contains(&self.search_query)
                         {
-                            ui.vertical_centered_justified(|ui| {
-                                // We create a short version of the value but
-                                // we keep the original to be copied
-                                // only the first X characters
-                                let short_value = if value.len()
-                                    > self.config.max_entry_display_length
-                                {
-                                    format!("{}...", &value[..self.config.max_entry_display_length])
-                                } else {
-                                    value.to_string()
-                                };
-
-                                if ui.button(short_value).clicked() {
-                                    if let Ok(mut clipboard) = Clipboard::new() {
-                                        match clipboard.set_text(value) {
-                                            Ok(()) => {}
-                                            Err(e) => {
-                                                tracing::error!(
-                                                    "Could not set clipboard value on click: {e}"
-                                                );
-                                            }
-                                        }
-                                    }
-
-                                    if self.config.minimize_on_copy {
-                                        // Minimize after copying
-                                        ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(
-                                            true,
-                                        ));
-                                    }
-                                }
-                            });
+                            // Display entry with helper method
+                            self.display_history_entry(ui, ctx, &value);
                             ui.add_space(10.0);
                         }
                     }
