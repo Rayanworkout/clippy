@@ -3,6 +3,14 @@ name = "clippy"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "daemon"
+path = "src/bin/daemon/main.rs"
+
+[[bin]]
+name = "ui"
+path = "src/bin/ui/main.rs"
+
 [dependencies]
 anyhow = "1.0.97"
 arboard = "3.4.1"

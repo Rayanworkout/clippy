@@ -1,3 +1,6 @@
+use crate::UI_LISTENING_PORT;
+use crate::UI_SENDING_PORT;
+
 use anyhow::{anyhow, Context, Result};
 use arboard::Clipboard;
 use core::panic;
@@ -18,16 +21,14 @@ const HISTORY_FILE_PATH: &str = ".clipboard_history.ron";
 const MAX_HISTORY_LENGTH: usize = 100;
 const CLIPBOARD_REFRESH_RATE_MS: u64 = 800;
 
-const UI_SENDING_PORT: u32 = 7878;
-const UI_LISTENING_PORT: u32 = 7879;
 const STREAM_MAX_RETRIES: u32 = 5;
-struct Clippy {
+pub struct Clippy {
     clipboard: Mutex<Clipboard>,
     history: Mutex<Vec<String>>,
 }
 
 impl Clippy {
-    fn new() -> Result<Self> {
+    pub fn new() -> Result<Self> {
         // Instanciate a clipboard object that will be used to access
         // or update the system clipboard.
 
@@ -40,7 +41,7 @@ impl Clippy {
     }
 
     /// Monitor clipboard changes and send a request to the UI on copy.
-    fn monitor_clipboard_events(&self) -> Result<()> {
+    pub fn monitor_clipboard_events(&self) -> Result<()> {
         let mut consecutive_clipboard_failures = 0;
 
         loop {
@@ -101,7 +102,7 @@ impl Clippy {
     /// history request when starting. This way the UI can stop and start while always
     /// having an up to date history as long as the clipboard daemon is running.
     /// We use a simple retry mechanism in case some requests fail.
-    fn listen_for_ui(self: Arc<Self>) {
+    pub fn listen_for_ui(self: Arc<Self>) {
         let clippy = Arc::clone(&self);
         thread::spawn(move || -> Result<()> {
             let mut buffer = [0; 512];
@@ -254,18 +255,4 @@ impl Clippy {
             STREAM_MAX_RETRIES
         ))
     }
-}
-
-fn main() -> Result<()> {
-    let clippy = Arc::new(Clippy::new()?);
-
-    // Spawn the UI listener thread. This works because listen_for_ui expects an Arc<Self>.
-    println!("Clippy listening for UI requests on {UI_LISTENING_PORT} ...");
-    Arc::clone(&clippy).listen_for_ui();
-
-    // Main thread
-    println!("Clippy listening for clipboard changes and ready to send to UI on port {UI_SENDING_PORT} ...");
-    clippy.monitor_clipboard_events()?;
-
-    Ok(())
 }
