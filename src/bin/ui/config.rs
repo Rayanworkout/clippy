@@ -4,7 +4,7 @@ const DEFAULT_MAX_ENTRY_DISPLAY_LENGTH: usize = 100;
 const DEFAULT_MINIMIZE_ON_COPY: bool = true;
 const DEFAULT_MINIMIZE_ON_CLEAR: bool = true;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct ClippyConfig {
     pub dark_mode: bool,
     pub max_entry_display_length: usize,

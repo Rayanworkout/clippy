@@ -25,8 +25,46 @@ impl eframe::App for ClippyApp {
             egui::menu::bar(ui, |ui| {
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
                     ui.menu_button("Preferences", |ui| {
-                        ui.checkbox(&mut self.config.minimize_on_copy, "Minimize on copy");
-                        ui.checkbox(&mut self.config.minimize_on_clear, "Minimize on clear");
+                        if ui
+                            .checkbox(&mut self.config.minimize_on_copy, "Minimize on copy")
+                            .clicked()
+                        {
+                            let updated_value = self.config.minimize_on_copy;
+
+                            // Update config
+                            let _ = confy::store(
+                                "clippy",
+                                None,
+                                ClippyConfig {
+                                    minimize_on_copy: updated_value,
+                                    dark_mode: self.config.dark_mode,
+                                    max_entry_display_length: self.config.max_entry_display_length,
+                                    minimize_on_clear: self.config.minimize_on_clear,
+                                },
+                            );
+
+                            tracing::info!("Minimize on copy set to {updated_value}.");
+                        }
+                        if ui
+                            .checkbox(&mut self.config.minimize_on_clear, "Minimize on clear")
+                            .clicked()
+                        {
+                            let updated_value = self.config.minimize_on_clear;
+
+                            // Update config
+                            let _ = confy::store(
+                                "clippy",
+                                None,
+                                ClippyConfig {
+                                    minimize_on_clear: updated_value,
+                                    dark_mode: self.config.dark_mode,
+                                    max_entry_display_length: self.config.max_entry_display_length,
+                                    minimize_on_copy: self.config.minimize_on_clear,
+                                },
+                            );
+
+                            tracing::info!("Minimize on clear set to {updated_value}.");
+                        }
                         ui.add(
                             egui::Slider::new(&mut self.config.max_entry_display_length, 10..=500)
                                 .text("max entry display length"),
@@ -46,13 +84,17 @@ impl eframe::App for ClippyApp {
                                 "clippy",
                                 None,
                                 ClippyConfig {
+                                    // New value first
                                     dark_mode: new_mode,
-                                    ..Default::default()
+                                    minimize_on_copy: self.config.minimize_on_copy,
+                                    max_entry_display_length: self.config.max_entry_display_length,
+                                    minimize_on_clear: self.config.minimize_on_clear,
                                 },
                             );
+
                             self.config.dark_mode = new_mode;
 
-                            tracing::info!("Dark mode set to {new_mode}");
+                            tracing::info!("Dark mode set to {new_mode}.");
                         }
                     });
 
@@ -123,9 +165,7 @@ impl eframe::App for ClippyApp {
                                     }
                                 }
                             });
-                            ui.add_space(5.0);
-                            ui.separator();
-                            ui.add_space(5.0);
+                            ui.add_space(10.0);
                         }
                     }
                 }

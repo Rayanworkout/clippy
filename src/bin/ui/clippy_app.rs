@@ -19,10 +19,13 @@ impl ClippyApp {
     pub fn new() -> Self {
         let empty_cache = Vec::new();
 
+        let config = confy::load("clippy", None).unwrap_or_default();
+        println!("Current config: {:?}", config);
+
         let clippy = ClippyApp {
             history_cache: Arc::new(Mutex::new(empty_cache)),
             search_query: String::new(),
-            config: confy::load("clippy", None).unwrap_or_default(),
+            config,
         };
 
         if let Err(initial_history_error) = clippy.fill_initial_history() {
@@ -101,7 +104,6 @@ impl ClippyApp {
         if let Ok(old_history) = request_result {
             *history =
                 from_str(&old_history).context("Failed to parse initial history with RON")?;
-            println!("Successfully loaded the initial history.");
         } else {
             *history = from_str("")?;
             tracing::error!("Could not fetch history from clipboard daemon.\nFalling back to an empty history.\n");
