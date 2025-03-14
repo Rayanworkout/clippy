@@ -13,6 +13,7 @@ pub struct ClippyApp {
     pub history_cache: Arc<Mutex<Vec<String>>>,
     pub search_query: String,
     pub config: ClippyConfig,
+    pub style_needs_update: bool,
 }
 
 impl ClippyApp {
@@ -23,6 +24,7 @@ impl ClippyApp {
             history_cache: Arc::new(Mutex::new(empty_cache)),
             search_query: String::new(),
             config: confy::load("clippy", None).unwrap_or_default(),
+            style_needs_update: true,
         };
 
         if let Err(initial_history_error) = clippy.fill_initial_history() {
@@ -32,16 +34,20 @@ impl ClippyApp {
         clippy
     }
 
+    /// This method is used inside the UI (preferences)
+    /// to toggle / edit config values.
     pub fn toggle_config_field(&mut self, field_name: &str) {
-        match field_name {
-            "minimize_on_copy" => self.config.minimize_on_copy = self.config.minimize_on_copy,
-            "minimize_on_clear" => self.config.minimize_on_clear = self.config.minimize_on_clear,
-            "dark_mode" => self.config.dark_mode = !self.config.dark_mode,
-            _ => {
-                tracing::error!("An invalid value was passed to ClippyApp.toggle_config_field()");
-                panic!("An invalid value was passed to ClippyApp.toggle_config_field()");
-            }
-        };
+        let allowed_settings: Vec<&str> = vec![
+            "minimize_on_copy",
+            "minimize_on_clear",
+            "dark_mode",
+            "max_entry_display_length",
+        ];
+
+        if !allowed_settings.contains(&field_name) {
+            tracing::error!("An invalid value was passed to ClippyApp.toggle_config_field()");
+            return;
+        }
 
         // Save the updated configuration
         let _ = confy::store("clippy", None, &self.config);
