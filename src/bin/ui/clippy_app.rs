@@ -19,13 +19,10 @@ impl ClippyApp {
     pub fn new() -> Self {
         let empty_cache = Vec::new();
 
-        let config = confy::load("clippy", None).unwrap_or_default();
-        println!("Current config: {:?}", config);
-
         let clippy = ClippyApp {
             history_cache: Arc::new(Mutex::new(empty_cache)),
             search_query: String::new(),
-            config,
+            config: confy::load("clippy", None).unwrap_or_default(),
         };
 
         if let Err(initial_history_error) = clippy.fill_initial_history() {
@@ -33,6 +30,37 @@ impl ClippyApp {
         }
 
         clippy
+    }
+
+    pub fn toggle_config_field(&mut self, field_name: &str) -> bool {
+        let updated_value = match field_name {
+            "minimize_on_copy" => {
+                self.config.minimize_on_copy = !self.config.minimize_on_copy;
+                self.config.minimize_on_copy
+            }
+            "minimize_on_clear" => !self.config.minimize_on_clear,
+            "dark_mode" => !self.config.dark_mode,
+            _ => {
+                tracing::error!("An invalid value was passed to ClippyApp.toggle_config_field()");
+                panic!("An invalid value was passed to ClippyApp.toggle_config_field()");
+            }
+        };
+
+        // Update the configuration with the new value
+        let config = ClippyConfig {
+            minimize_on_copy: self.config.minimize_on_copy,
+            dark_mode: self.config.dark_mode,
+            max_entry_display_length: self.config.max_entry_display_length,
+            minimize_on_clear: self.config.minimize_on_clear,
+        };
+
+        // Save the updated configuration
+        let _ = confy::store("clippy", None, config);
+
+        // Log the change
+        tracing::info!("{} set to {}.", field_name, updated_value);
+
+        updated_value
     }
 
     pub fn listen_for_history_updates(self: Arc<Self>) {
