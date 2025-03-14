@@ -25,7 +25,9 @@ impl ClippyApp {
             config: confy::load("clippy", None).unwrap_or_default(),
         };
 
-        let _ = clippy.fill_initial_history();
+        if let Err(initial_history_error) = clippy.fill_initial_history() {
+            tracing::error!("An error occured when loading initial history in Clippy UI: {initial_history_error}.");
+        }
 
         clippy
     }
@@ -34,8 +36,11 @@ impl ClippyApp {
         let clippy_app = Arc::clone(&self);
         thread::spawn(move || -> Result<()> {
             let listener = TcpListener::bind(format!("127.0.0.1:{DAEMON_LISTENING_PORT}"))
-                .expect("Could not bind");
-            println!("UI server listening on port {DAEMON_LISTENING_PORT} ...");
+                .context(format!(
+                    "Could not bind to 127.0.0.1:{DAEMON_LISTENING_PORT} when trying to listen for daemon history updates."
+                ))?;
+
+            tracing::info!("UI server listening on port {DAEMON_LISTENING_PORT} ...");
 
             for stream in listener.incoming() {
                 match stream {
@@ -44,7 +49,7 @@ impl ClippyApp {
 
                         stream
                             .read_to_end(&mut buffer)
-                            .expect("Failed to read from stream");
+                            .context("Failed to read from stream")?;
                         let request = String::from_utf8_lossy(&buffer);
 
                         let mut history = clippy_app
@@ -56,7 +61,9 @@ impl ClippyApp {
                             from_str(&request).context("Failed to parse history with RON")?;
                     }
                     Err(e) => {
-                        eprintln!("Failed to accept connection: {}", e);
+                        tracing::error!(
+                            "Failed to accept connexion on {DAEMON_LISTENING_PORT}: {e} ..."
+                        );
                     }
                 }
             }
@@ -96,12 +103,10 @@ impl ClippyApp {
                 from_str(&old_history).context("Failed to parse initial history with RON")?;
             println!("Successfully loaded the initial history.");
         } else {
-            eprintln!(
-                "Could not fetch history from clipboard daemon.\nFalling back to an empty history.\n",
-            );
             *history = from_str("")?;
+            tracing::error!("Could not fetch history from clipboard daemon.\nFalling back to an empty history.\n");
         }
-
+        tracing::info!("Successfully loaded initial history from clipboard daemon ...");
         Ok(())
     }
 
@@ -133,7 +138,7 @@ impl ClippyApp {
         })();
 
         if let Err(e) = request_result {
-            eprintln!("Could not clear history: {e}\n");
+            tracing::error!("Could not clear history: {e}\n");
         }
 
         Ok(())

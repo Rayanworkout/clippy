@@ -34,7 +34,7 @@ fn main() -> eframe::Result<()> {
     // Spawn a background thread that periodically updates the shared history.
     Arc::clone(&clippy_ui).listen_for_history_updates();
 
-    tracing::info!("Starting App and listener on 127.0.0.1:{DAEMON_LISTENING_PORT}.");
+    tracing::info!("Starting App ...");
 
     // Pass the ClippyApp instance directly to run_native.
     eframe::run_native(

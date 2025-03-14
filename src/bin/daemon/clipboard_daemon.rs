@@ -66,14 +66,32 @@ impl Clippy {
 
                             // Send the TCP request to the UI
                             match TcpStream::connect(format!("127.0.0.1:{UI_SENDING_PORT}")) {
-                                Ok(stream) => self.send_history(stream)?,
+                                Ok(stream) => match self.send_history(stream) {
+                                    Ok(()) => {tracing::info!(
+                                        "Successfully sent history to UI after clipboard event ..."
+                                    );},
+                                    Err(e) => {
+                                        tracing::error!(
+                                            "An error occured when sending history to UI after clipboard event: {e} ..."
+                                        );
+                                    }
+                                },
                                 Err(_) => {
                                     // UI not available
                                 }
                             }
 
                             // Save new history to file
-                            self.save_history()?;
+                            match self.save_history() {
+                                Ok(()) => {tracing::info!(
+                                    "Successfully saved history after clipboard event ..."
+                                );},
+                                Err(e) => {
+                                    tracing::error!(
+                                        "An error occured when saving history to file after clipboard event: {e} ..."
+                                    );
+                                }
+                            }
                         }
                     }
                     Err(clipboard_content_error) => {
@@ -119,14 +137,25 @@ impl Clippy {
                         clippy
                             .send_history(stream.try_clone()?)
                             .context("Could not send the history to UI, stream.write() failed.")?;
+
+                        tracing::info!(
+                            "\"GET_HISTORY\" request received, sending current history to UI ..."
+                        );
                     } else if request.trim() == "RESET_HISTORY" {
                         clippy
                             .clear_history()
                             .context("Could not clear history after UI request.")?;
 
                         stream.write(b"OK")?;
+
+                        tracing::info!(
+                            "\"RESET_HISTORY\" request received, clearing current history ..."
+                        );
                     } else {
                         stream.write(b"BAD_REQUEST")?;
+                        tracing::warn!(
+                            "Unexpected request received, sending back \"BAD_REQUEST\" to the UI ..."
+                        );
                     }
                     Ok(())
                 })();
@@ -137,9 +166,11 @@ impl Clippy {
                         get_stream_consecutive_failures = 0;
                     }
                     Err(e) => {
-                        eprintln!("Error handling UI request: {}. Retrying...", e);
+                        tracing::error!("Error handling UI request: {e}. Retrying...");
                         get_stream_consecutive_failures += 1;
                         if get_stream_consecutive_failures >= STREAM_MAX_RETRIES {
+                            tracing::error!("Exceeded {STREAM_MAX_RETRIES} consecutive failures. Exiting UI listener thread.");
+
                             panic!(
                                 "Exceeded {STREAM_MAX_RETRIES} consecutive failures. Exiting UI listener thread.",
                             );

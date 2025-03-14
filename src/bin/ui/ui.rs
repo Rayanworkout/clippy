@@ -40,16 +40,19 @@ impl eframe::App for ClippyApp {
                             "🌙"
                         };
                         if ui.button(logo).clicked() {
+                            let new_mode = !self.config.dark_mode;
                             // Update config
                             let _ = confy::store(
                                 "clippy",
                                 None,
                                 ClippyConfig {
-                                    dark_mode: !self.config.dark_mode,
+                                    dark_mode: new_mode,
                                     ..Default::default()
                                 },
                             );
-                            self.config.dark_mode = !self.config.dark_mode;
+                            self.config.dark_mode = new_mode;
+
+                            tracing::info!("Dark mode set to {new_mode}");
                         }
                     });
 
