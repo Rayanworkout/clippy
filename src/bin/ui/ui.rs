@@ -1,4 +1,5 @@
 use crate::clippy_app::ClippyApp;
+use crate::config::ClippyConfig;
 
 use arboard::Clipboard;
 use eframe::egui;
@@ -39,6 +40,15 @@ impl eframe::App for ClippyApp {
                             "🌙"
                         };
                         if ui.button(logo).clicked() {
+                            // Update config
+                            let _ = confy::store(
+                                "clippy",
+                                None,
+                                ClippyConfig {
+                                    dark_mode: !self.config.dark_mode,
+                                    ..Default::default()
+                                },
+                            );
                             self.config.dark_mode = !self.config.dark_mode;
                         }
                     });

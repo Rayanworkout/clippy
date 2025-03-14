@@ -1,4 +1,4 @@
-use crate::config::AppConfig;
+use crate::config::ClippyConfig;
 use crate::DAEMON_LISTENING_PORT;
 use crate::DAEMON_SENDING_PORT;
 use anyhow::{anyhow, Context, Result};
@@ -12,18 +12,17 @@ use std::thread;
 pub struct ClippyApp {
     pub history_cache: Arc<Mutex<Vec<String>>>,
     pub search_query: String,
-    pub config: AppConfig,
+    pub config: ClippyConfig,
 }
-
-
 
 impl ClippyApp {
     pub fn new() -> Self {
         let empty_cache = Vec::new();
+
         let clippy = ClippyApp {
             history_cache: Arc::new(Mutex::new(empty_cache)),
             search_query: String::new(),
-            config: AppConfig::new()
+            config: confy::load("clippy", None).unwrap_or_default(),
         };
 
         let _ = clippy.fill_initial_history();
