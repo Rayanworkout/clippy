@@ -108,7 +108,6 @@ impl eframe::App for ClippyApp {
                         {
                             // Display entry with helper method
                             self.display_history_entry(ui, ctx, &value);
-                            ui.add_space(10.0);
                         }
                     }
                 }

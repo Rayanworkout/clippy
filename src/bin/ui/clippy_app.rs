@@ -58,11 +58,12 @@ impl ClippyApp {
         tracing::info!("{field_name} changed in config.");
     }
 
+    /// Helper method to display a single history entry.
+    /// It is called within the loop iterating through clipboard history
     pub fn display_history_entry(&self, ui: &mut egui::Ui, ctx: &egui::Context, value: &str) {
         ui.vertical_centered_justified(|ui| {
             // We create a short version of the value but
             // we keep the original to be copied
-            // only the first X characters
             let short_value = if value.len() > self.config.max_entry_display_length {
                 format!("{}...", &value[..self.config.max_entry_display_length])
             } else {
@@ -72,7 +73,9 @@ impl ClippyApp {
             if ui.button(short_value).clicked() {
                 if let Ok(mut clipboard) = Clipboard::new() {
                     match clipboard.set_text(value) {
-                        Ok(()) => {}
+                        Ok(()) => {
+                            tracing::info!("Successfully set value to clipboard.");
+                        }
                         Err(e) => {
                             tracing::error!("Could not set clipboard value on click: {e}");
                         }
@@ -84,6 +87,8 @@ impl ClippyApp {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
                 }
             }
+            ui.add_space(10.0);
+
         });
     }
 
