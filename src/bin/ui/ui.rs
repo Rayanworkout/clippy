@@ -44,6 +44,16 @@ impl eframe::App for ClippyApp {
                         }
 
                         if ui
+                            .checkbox(
+                                &mut self.config.enable_search,
+                                "Enable search functionality",
+                            )
+                            .clicked()
+                        {
+                            self.toggle_config_field("enable_search");
+                        }
+
+                        if ui
                             .add(
                                 egui::Slider::new(
                                     &mut self.config.max_entry_display_length,
@@ -80,7 +90,9 @@ impl eframe::App for ClippyApp {
                 ui.add_space(10.0);
                 ui.vertical_centered(|ui| {
                     // Search input
-                    ui.text_edit_singleline(&mut self.search_query);
+                    if self.config.enable_search {
+                        ui.text_edit_singleline(&mut self.search_query);
+                    };
 
                     ui.add_space(10.0);
                     // Clear history

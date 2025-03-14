@@ -44,6 +44,7 @@ impl ClippyApp {
             "minimize_on_clear",
             "dark_mode",
             "max_entry_display_length",
+            "enable_search"
         ];
 
         if !allowed_settings.contains(&field_name) {
