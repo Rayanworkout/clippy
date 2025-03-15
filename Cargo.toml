@@ -2,6 +2,8 @@
 name = "clippy"
 version = "0.1.0"
 edition = "2021"
+authors = ["Rayan rayan13170@protonmail.com"]
+license = "MIT"
 
 [[bin]]
 name = "daemon"
