@@ -92,9 +92,9 @@ impl eframe::App for ClippyApp {
                     // Search input
                     if self.config.enable_search {
                         ui.text_edit_singleline(&mut self.search_query);
+                        ui.add_space(10.0);
                     };
 
-                    ui.add_space(10.0);
                     // Clear history
                     if ui
                         .button("🗑")
@@ -139,7 +139,7 @@ impl eframe::App for ClippyApp {
                     "https://github.com/Rayanworkout/clippy",
                 ))
             });
-            ui.add_space(10.);
+            ui.add_space(7.);
         });
 
         // Ensure UI updates regularly
