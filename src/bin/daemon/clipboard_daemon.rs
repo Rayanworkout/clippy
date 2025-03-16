@@ -67,9 +67,11 @@ impl Clippy {
                             // Send the TCP request to the UI
                             match TcpStream::connect(format!("127.0.0.1:{UI_SENDING_PORT}")) {
                                 Ok(stream) => match self.send_history(stream) {
-                                    Ok(()) => {tracing::info!(
+                                    Ok(()) => {
+                                        tracing::info!(
                                         "Successfully sent history to UI after clipboard event ..."
-                                    );},
+                                    );
+                                    }
                                     Err(e) => {
                                         tracing::error!(
                                             "An error occured when sending history to UI after clipboard event: {e} ..."
@@ -83,9 +85,11 @@ impl Clippy {
 
                             // Save new history to file
                             match self.save_history() {
-                                Ok(()) => {tracing::info!(
-                                    "Successfully saved history after clipboard event ..."
-                                );},
+                                Ok(()) => {
+                                    tracing::info!(
+                                        "Successfully saved history after clipboard event ..."
+                                    );
+                                }
                                 Err(e) => {
                                     tracing::error!(
                                         "An error occured when saving history to file after clipboard event: {e} ..."
@@ -95,12 +99,17 @@ impl Clippy {
                         }
                     }
                     Err(clipboard_content_error) => {
-                        eprintln!("Error getting the clipboard content: {clipboard_content_error}");
+                        tracing::error!("Error getting the clipboard content: {clipboard_content_error}");
                         consecutive_clipboard_failures += 1;
+                        // Setting an empty value to the clipboard in case it is empty, to prevent errors
+                        tracing::info!("Setting an empty value to the clipboard to prevent read issues ...");
+                        clipboard.set_text("")?;
 
                         if consecutive_clipboard_failures == 3 {
                             panic!("Error getting the clipboard content 3 times in a row, aborting daemon run.")
                         }
+
+                        thread::sleep(Duration::from_millis(CLIPBOARD_REFRESH_RATE_MS));
                     }
                 }
             }
