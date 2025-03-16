@@ -38,6 +38,8 @@ cd clippy
 
 cargo build --release
 
+# Now you can use linux_install.sh or do it manually
+
 sudo cp target/release/daemon /usr/local/bin/clippy_daemon
 sudo cp target/release/ui /usr/local/bin/clippy_ui
 

@@ -1,20 +1,22 @@
 #!/bin/bash
 set -e
 
+BUILD_DIR="./target/release"
+
+# Destination directory (common location for system-wide binaries on Linux)
+DEST_DIR="/usr/local/bin"
+
 # Check if the daemon binary exists in the script's directory
-if [ ! -f "$./daemon" ]; then
+if [ ! -f "$BUILD_DIR/daemon" ]; then
     echo "Error: 'daemon' binary not found. Exiting."
     exit 1
 fi
 
 # Check if the ui binary exists in the script's directory
-if [ ! -f "$./ui" ]; then
+if [ ! -f "$BUILD_DIR/ui" ]; then
     echo "Error: 'ui' binary not found. Exiting."
     exit 1
 fi
-
-# Destination directory (common location for system-wide binaries on Linux)
-DEST_DIR="/usr/local/bin"
 
 # Ensure the destination directory exists, create it if it doesn't
 if [ ! -d "$DEST_DIR" ]; then
@@ -24,10 +26,10 @@ fi
 
 # Move the files to the destination directory
 echo "Installing daemon binary to $DEST_DIR..."
-sudo mv "$SCRIPT_DIR/daemon" "$DEST_DIR"
+sudo mv "$BUILD_DIR/daemon" "$DEST_DIR"
 
 echo "Installing ui binary to $DEST_DIR..."
-sudo mv "$SCRIPT_DIR/ui" "$DEST_DIR"
+sudo mv "$BUILD_DIR/ui" "$DEST_DIR"
 
 # Make sure the binaries are executable
 echo "Setting execute permissions on the binaries..."
