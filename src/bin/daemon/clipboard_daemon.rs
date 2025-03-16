@@ -102,8 +102,8 @@ impl Clippy {
                         tracing::error!("Error getting the clipboard content: {clipboard_content_error}");
                         consecutive_clipboard_failures += 1;
                         // Setting an empty value to the clipboard in case it is empty, to prevent errors
-                        tracing::info!("Setting an empty value to the clipboard to prevent read issues ...");
-                        clipboard.set_text("")?;
+                        tracing::info!("Setting an arbitrary value to the clipboard to prevent read issues ...");
+                        clipboard.set_text("Hello Clippy !")?;
 
                         if consecutive_clipboard_failures == 3 {
                             panic!("Error getting the clipboard content 3 times in a row, aborting daemon run.")

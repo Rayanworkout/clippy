@@ -44,7 +44,7 @@ impl ClippyApp {
             "minimize_on_clear",
             "dark_mode",
             "max_entry_display_length",
-            "enable_search"
+            "enable_search",
         ];
 
         if !allowed_settings.contains(&field_name) {
@@ -66,7 +66,11 @@ impl ClippyApp {
             // We create a short version of the value but
             // we keep the original to be copied
             let short_value = if value.len() > self.config.max_entry_display_length {
-                format!("{}...", &value[..self.config.max_entry_display_length])
+                let truncated: String = value
+                    .chars()
+                    .take(self.config.max_entry_display_length)
+                    .collect();
+                format!("{}...", truncated)
             } else {
                 value.to_string()
             };
@@ -89,7 +93,6 @@ impl ClippyApp {
                 }
             }
             ui.add_space(10.0);
-
         });
     }
 
