@@ -43,7 +43,10 @@ cargo build --release
 sudo cp target/release/daemon /usr/local/bin/clippy_daemon
 sudo cp target/release/ui /usr/local/bin/clippy_ui
 
+# And finally
+
 nohup clippy_daemon &>/dev/null &
+clippy_ui
 ```
 
 The application should now be running and listening for your clipboard changes.

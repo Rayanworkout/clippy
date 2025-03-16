@@ -26,13 +26,13 @@ fi
 
 # Move the files to the destination directory
 echo "Installing daemon binary to $DEST_DIR..."
-sudo mv "$BUILD_DIR/daemon" "$DEST_DIR"
+sudo mv "$BUILD_DIR/clippy_daemon" "$DEST_DIR"
 
 echo "Installing ui binary to $DEST_DIR..."
-sudo mv "$BUILD_DIR/ui" "$DEST_DIR"
+sudo mv "$BUILD_DIR/clippy_ui" "$DEST_DIR"
 
 # Make sure the binaries are executable
 echo "Setting execute permissions on the binaries..."
-sudo chmod +x "$DEST_DIR/daemon" "$DEST_DIR/ui"
+sudo chmod +x "$DEST_DIR/clippy_daemon" "$DEST_DIR/clippy_ui"
 
 echo "Installation complete!"
