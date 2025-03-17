@@ -38,12 +38,9 @@ cd clippy
 
 cargo build --release
 
-# Now you can use linux_install.sh or do it manually
+chmod u+x ./linux_install.sh
 
-sudo cp target/release/daemon /usr/local/bin/clippy_daemon
-sudo cp target/release/ui /usr/local/bin/clippy_ui
-
-nohup clippy_daemon &>/dev/null &
+./linux_install.sh
 ```
 
 The application should now be running and listening for your clipboard changes.
